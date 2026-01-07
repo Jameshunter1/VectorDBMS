@@ -28,10 +28,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /vectis
 
-# Copy built executables
-COPY --from=builder /build/build/dbweb ./
-COPY --from=builder /build/build/dbcli ./
-COPY --from=builder /build/build/libcore_engine.so ./
+# Copy built executables from Release build
+COPY --from=builder /build/build/Release/dbweb* ./dbweb
+COPY --from=builder /build/build/Release/dbcli* ./dbcli
+# Note: core_engine is a static library, not needed at runtime
 
 # Create data directory
 RUN mkdir -p /vectis/data
@@ -47,7 +47,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 ENV VECTIS_DATA_DIR=/vectis/data
 ENV VECTIS_PORT=8080
 ENV VECTIS_HOST=0.0.0.0
-ENV LD_LIBRARY_PATH=/vectis
 
 # Non-root user for security
 RUN useradd -r -u 1001 -g root vectis && \
