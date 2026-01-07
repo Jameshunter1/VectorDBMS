@@ -241,6 +241,10 @@ Page* BufferPoolManager::NewPage(PageId* page_id) {
   page->MarkDirty();  // New page needs to be written
   page->SetLSN(0);  // TODO: Get from LogManager in Q4
 
+  // CRITICAL: Update checksum so page can be read before flush
+  // Without this, reading the page before it's flushed causes checksum mismatch
+  page->UpdateChecksum();
+
   // Update page table
   page_table_[new_page_id] = frame_id;
   replacer_->Pin(frame_id);
