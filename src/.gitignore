@@ -1,31 +1,220 @@
-# Build outputs
+# Build directories
 build/
+Build/
+out/
 cmake-build-*/
 
-# IDE / editor
+# Visual Studio / MSBuild
 .vs/
-.vscode/
-
-# OS
-Thumbs.db
-Desktop.ini
-
-# Compilers
-*.obj
-*.pdb
-*.ilk
-*.idb
-*.exp
-*.lib
-*.dll
-*.exe
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+ipch/
+*.aps
+*.ncb
+*.opendb
+*.cachefile
+*.psess
+*.vsp
+*.vspx
+*.sap
 
 # CMake
-CMakeFiles/
 CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+Makefile
 cmake_install.cmake
+install_manifest.txt
+compile_commands.json
 CTestTestfile.cmake
+_deps/
 *_prefix/
 
-# Catch2 / Benchmark fetch content (if used)
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.ko
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+dbcli
+dbweb
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+*.ilk
+*.exp
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# IDEs
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+*.code-workspace
+.history/
+
+# Database files (if generated during testing)
+*.db
+*.sqlite
+*.sqlite3
+data/
+db_data/
+*.wal
+*.manifest
+*.sst
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Documentation build
+docs/_build/
+docs/_site/
+*.pdf
+
+# Package managers
+conan/
+vcpkg_installed/
+.conan/
+
+# Profiling and coverage
+*.gcda
+*.gcno
+*.gcov
+coverage/
+*.coverage
+htmlcov/
+.nyc_output/
+
+# Benchmarking results
+benchmark_results/
+*.bench
+
+# Editor backup files
+*.orig
+*.rej
+*.backup
+
+# Test outputs
+test_output/
+test_results/
 _testing/
+
+# Python (if using Python scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Node (if using Node.js for tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Performance data
+perf.data
+perf.data.old
+*.perf
+
+# Clang tools
+.clangd/
+.cache/
+
+# Sanitizer outputs
+*.san
+
+# Core dumps
+core
+core.*
+
+# Project-specific
+database/
+storage/
+wal/
+sst/
+manifest/

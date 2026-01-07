@@ -1,0 +1,72 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  coverage:
+    name: Generate Code Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake ninja-build \
+          gcc-11 g++-11 \
+          gcovr lcov
+    
+    - name: Configure CMake with coverage
+      env:
+        CC: gcc-11
+        CXX: g++-11
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+          -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+          -DBUILD_TESTING=ON
+    
+    - name: Build
+      run: cmake --build build -j
+    
+    - name: Run Tests
+      working-directory: build
+      run: ctest --output-on-failure --verbose
+    
+    - name: Generate coverage report
+      working-directory: build
+      run: |
+        gcovr -r .. \
+          --exclude '../tests/*' \
+          --exclude '../build/*' \
+          --xml-pretty \
+          --xml coverage.xml \
+          --html-details coverage.html
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./build/coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+    
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          build/coverage.xml
+          build/coverage.html
+        retention-days: 30

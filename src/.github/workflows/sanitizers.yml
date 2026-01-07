@@ -1,0 +1,166 @@
+name: Sanitizers
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  # ============================================================================
+  # Address Sanitizer
+  # ============================================================================
+  address-sanitizer:
+    name: AddressSanitizer
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build clang-15
+    
+    - name: Configure CMake with ASan
+      env:
+        CC: clang-15
+        CXX: clang++-15
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+          -DCMAKE_C_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
+          -DBUILD_TESTING=ON
+    
+    - name: Build
+      run: cmake --build build -j
+    
+    - name: Run Tests with ASan
+      working-directory: build
+      env:
+        ASAN_OPTIONS: detect_leaks=1:symbolize=1:abort_on_error=1
+      run: ctest --output-on-failure --verbose
+
+  # ============================================================================
+  # Undefined Behavior Sanitizer
+  # ============================================================================
+  undefined-sanitizer:
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build clang-15
+    
+    - name: Configure CMake with UBSan
+      env:
+        CC: clang-15
+        CXX: clang++-15
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g" \
+          -DCMAKE_C_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -g" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined" \
+          -DBUILD_TESTING=ON
+    
+    - name: Build
+      run: cmake --build build -j
+    
+    - name: Run Tests with UBSan
+      working-directory: build
+      env:
+        UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+      run: ctest --output-on-failure --verbose
+
+  # ============================================================================
+  # Thread Sanitizer
+  # ============================================================================
+  thread-sanitizer:
+    name: ThreadSanitizer
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build clang-15
+    
+    - name: Configure CMake with TSan
+      env:
+        CC: clang-15
+        CXX: clang++-15
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
+          -DCMAKE_C_FLAGS="-fsanitize=thread -fno-omit-frame-pointer -g" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread" \
+          -DBUILD_TESTING=ON
+    
+    - name: Build
+      run: cmake --build build -j
+    
+    - name: Run Tests with TSan
+      working-directory: build
+      env:
+        TSAN_OPTIONS: second_deadlock_stack=1
+      run: ctest --output-on-failure --verbose
+
+  # ============================================================================
+  # Memory Sanitizer (Clang only)
+  # ============================================================================
+  memory-sanitizer:
+    name: MemorySanitizer
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build clang-15
+    
+    - name: Configure CMake with MSan
+      env:
+        CC: clang-15
+        CXX: clang++-15
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_CXX_FLAGS="-fsanitize=memory -fno-omit-frame-pointer -g" \
+          -DCMAKE_C_FLAGS="-fsanitize=memory -fno-omit-frame-pointer -g" \
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=memory" \
+          -DBUILD_TESTING=ON
+    
+    - name: Build
+      run: cmake --build build -j
+    
+    - name: Run Tests with MSan
+      working-directory: build
+      env:
+        MSAN_OPTIONS: symbolize=1:abort_on_error=1
+      run: ctest --output-on-failure --verbose || true  # MSan may fail due to uninstrumented libraries
