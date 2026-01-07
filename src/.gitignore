@@ -1,4 +1,6 @@
-# Build directories
+# Build directories (DO NOT BUILD HERE - use repository root instead)
+# Run commands from repository root: cmake --preset windows-vs2022-x64-debug
+# This creates builds at: ../build/windows-vs2022-x64-debug/
 build/
 Build/
 out/

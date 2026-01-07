@@ -1,4 +1,4 @@
-# Build outputs
+# Build outputs (at repository root only - do NOT put builds in src/)
 build/
 cmake-build-*/
 

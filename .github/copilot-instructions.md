@@ -69,13 +69,31 @@ This is a **C++20 page-oriented vector database engine** designed for production
 ### CMake Structure
 
 - **Multi-root workspace**: `src/` (engine), `tests/` (Catch2), `benchmarks/` (Google Benchmark)
+- **Build directory**: `build/` at repository root (out-of-source builds)
+- **Source directory**: `src/` contains CMakeLists.txt (project root for CMake)
 - **Compiler flags**: `-march=native` for SIMD, `-O3 -DNDEBUG` for release, `/std:c++20` on Windows
 
-### Build Commands (from `src/` directory)
+**Directory Layout:**
+```
+VectorDBMS/                  # Repository root (run CMake commands from here)
+├── src/                     # Source directory (CMakeLists.txt here)
+│   ├── CMakeLists.txt       # Main project configuration
+│   ├── CMakePresets.json    # Preset configurations
+│   ├── include/             # Public headers
+│   ├── lib/                 # Implementation files
+│   └── apps/                # Executables (dbcli, dbweb, tutorial)
+├── build/                   # Build directory (created by CMake)
+│   └── windows-vs2022-x64-debug/  # Build artifacts for specific preset
+├── tests/                   # Test suite (sibling to src/)
+└── benchmarks/              # Performance benchmarks (sibling to src/)
+```
+
+### Build Commands (from repository root)
 
 ```powershell
 # Windows: Configure with Visual Studio 2022 generator (multi-config)
-cmake --preset windows-vs2022-x64-debug
+# IMPORTANT: Run from repository root, NOT from src/ directory
+cmake --preset windows-vs2022-x64-debug -S src
 
 # Build all targets (library + apps + tests + benchmarks)
 cmake --build --preset windows-vs2022-x64-debug
@@ -90,12 +108,13 @@ ctest --preset windows-vs2022-x64-debug --output-on-failure
 .\build\windows-vs2022-x64-debug\Debug\core_engine_tests.exe "[engine]"
 
 # Run benchmarks
-.\build\windows-vs2022-x64-debug\Debug\core_engine_benchmarks.exe --benchmark_filter=Page
+.\build\windows-vs2022-x64-debug\benchmarks\Debug\core_engine_benchmarks.exe --benchmark_filter=Page
 ```
 
 ```bash
 # Linux/macOS: Configure with Ninja or Unix Makefiles (single-config)
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCORE_ENGINE_BUILD_TESTS=ON
+# Run from repository root
+cmake -B build -S src -DCMAKE_BUILD_TYPE=Debug -DCORE_ENGINE_BUILD_TESTS=ON
 
 # Build
 cmake --build build -j
@@ -104,10 +123,10 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 
 # Run specific test
-./build/core_engine_tests "[engine]"
+./build/tests/core_engine_tests "[engine]"
 
 # Run benchmarks
-./build/core_engine_benchmarks --benchmark_filter=Page
+./build/benchmarks/core_engine_benchmarks --benchmark_filter=Page
 ```
 
 **Key differences**:

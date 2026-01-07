@@ -177,21 +177,27 @@ add_executable(core_engine_tests
 
 ### Build Commands
 ```powershell
-# Configure (if needed)
-cmake --preset windows-vs2022-x64-debug
+# Configure (run from repository root, not from src/)
+cmake --preset windows-vs2022-x64-debug -S src
 
-# Build benchmarks
+# Build benchmarks (from repository root)
 cmake --build build/windows-vs2022-x64-debug --config Debug --target core_engine_benchmarks
 
-# Build tests
+# Build tests (from repository root)
 cmake --build build/windows-vs2022-x64-debug --config Debug --target core_engine_tests
 
-# Run tests
+# Run tests (from repository root)
 ctest --test-dir build/windows-vs2022-x64-debug -C Debug --output-on-failure
 
-# Run benchmarks
+# Run benchmarks (from repository root)
 .\build\windows-vs2022-x64-debug\benchmarks\Debug\core_engine_benchmarks.exe
 ```
+
+**Directory Structure:**
+- `src/` - Source code and CMakeLists.txt (project root for CMake)
+- `build/` - All build artifacts (at repository root, never in src/)
+- `tests/` - Test suites (sibling to src/)
+- `benchmarks/` - Performance benchmarks (sibling to src/)
 
 ---
 

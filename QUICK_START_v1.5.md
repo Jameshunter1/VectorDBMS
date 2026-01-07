@@ -8,14 +8,23 @@
 - C++20 compatible compiler
 
 ### Build Everything
+
+**Important:** All CMake commands should be run from the **repository root** (not from `src/`), but they will use `src/` as the source directory.
+
 ```powershell
-# Configure project
-cd src
-cmake --preset windows-vs2022-x64-debug
+# From repository root: c:\Users\James\SystemProjects\VectorDBMS\
+# Configure project (creates build at ./build/windows-vs2022-x64-debug/)
+cmake --preset windows-vs2022-x64-debug -S src
 
 # Build all targets (library, apps, tests, benchmarks)
 cmake --build build/windows-vs2022-x64-debug --config Debug -j 8
 ```
+
+**Why this structure?**
+- **Source directory**: `src/` (contains CMakeLists.txt)
+- **Build directory**: `build/` at repository root (keeps source clean)
+- **CMakePresets.json** in `src/` configures this layout automatically
+- This follows CMake best practices for out-of-source builds
 
 ---
 
