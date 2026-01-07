@@ -1,3 +1,7 @@
+# Docker Compose configuration for Vectis Database
+# Usage: docker compose up -d
+# (Note: Use 'docker compose' not 'docker-compose' - V2 syntax)
+
 version: '3.8'
 
 services:
