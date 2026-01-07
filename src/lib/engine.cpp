@@ -115,7 +115,8 @@ Status Engine::Open(const DatabaseConfig& config) {
   for (PageId page_id = 1; page_id <= num_pages; ++page_id) {
     auto page = buffer_pool_manager_->FetchPage(page_id);
     if (!page) {
-      Log(LogLevel::kWarn,
+      // DEBUG: Expected when reusing database directories (benchmarks, tests)
+      Log(LogLevel::kDebug,
           "Failed to fetch page " + std::to_string(page_id) + " during index rebuild");
       continue;
     }
