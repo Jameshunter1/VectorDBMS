@@ -33,7 +33,6 @@ struct DatabaseConfig {
   size_t buffer_pool_size_mb{4};
   size_t wal_buffer_size_kb{256};
   bool enable_compression{false};
-  int compaction_threads{2};
 };
 
 // Application configuration

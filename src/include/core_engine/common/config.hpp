@@ -12,7 +12,7 @@ namespace core_engine {
  *
  * Key Features:
  * - Separate WAL directory for performance (WAL on fast disk, data on capacity disk)
- * - Level-based SSTable organization (level_0/, level_1/, etc.)
+ * - Page data organized into level subdirectories for manageability
  * - Standard system paths for production deployments
  * - Configuration file support (future: YAML/JSON parsing)
  */
@@ -22,7 +22,7 @@ struct DatabaseConfig {
   /// Root directory for the database (used in embedded mode)
   std::filesystem::path root_dir;
 
-  /// Directory for SSTable storage
+  /// Directory for page data files
   /// In embedded mode: same as root_dir
   /// In production: separate volume (e.g., /var/lib/vectis/data or C:\ProgramData\Vectis\data)
   std::filesystem::path data_dir;
@@ -32,10 +32,9 @@ struct DatabaseConfig {
   /// In production: fast disk with write endurance (e.g., /var/lib/vectis/wal)
   std::filesystem::path wal_dir;
 
-  /// Whether to organize SSTables into level subdirectories
-  /// true: data_dir/level_0/, data_dir/level_1/, etc.
-  /// false: all SSTables in data_dir/ (legacy flat structure)
-  bool use_level_directories = true;
+  /// Deprecated: Page-oriented architecture stores pages in flat structure (no LSM-style levels)
+  /// This field is ignored. All page data files stored directly in data_dir/
+  bool use_level_directories = false; // Deprecated
 
   // ====== Performance Tuning ======
 
@@ -46,8 +45,8 @@ struct DatabaseConfig {
   /// Block cache size in bytes (future: caching page blocks)
   std::size_t block_cache_size_bytes = 256 * 1024 * 1024; // 256 MB
 
-  /// Number of pages at L0 that trigger compaction (future)
-  std::size_t l0_compaction_trigger = 4;
+  /// Deprecated: Page-oriented architecture doesn't use LSM-style compaction
+  std::size_t l0_compaction_trigger = 0; // Deprecated
 
   // ====== Durability Options ======
 
@@ -129,13 +128,9 @@ struct DatabaseConfig {
 
   // ====== Path Helpers ======
 
-  /// Get the full path for a level directory
-  /// Example: GetLevelPath(0) -> "data_dir/level_0"
-  std::filesystem::path GetLevelPath(int level) const;
-
   /// Get the full path for a page data file
-  /// Example: GetSSTablePath(42, 1) -> "data_dir/level_1/page_42.dat"
-  std::filesystem::path GetSSTablePath(uint64_t sstable_id, int level) const;
+  /// Example: GetPageDataPath(42) -> "data_dir/page_42.dat"
+  std::filesystem::path GetPageDataPath(uint64_t page_id) const;
 
   /// Get the full path for the WAL file
   std::filesystem::path GetWalPath() const;

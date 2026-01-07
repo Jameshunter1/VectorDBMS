@@ -67,7 +67,7 @@ public:
   // Search for k nearest neighbors
   std::vector<SearchResult> Search(const Vector& query, std::size_t k) const;
 
-  // Remove a vector (marks as deleted, actual removal during compaction)
+  // Remove a vector (immediate removal from index)
   Status Remove(const std::string& key);
 
   // Get statistics
@@ -79,7 +79,7 @@ public:
   };
   Stats GetStats() const;
 
-  // Serialization (for persisting to SSTable)
+  // Serialization (for persisting via BufferPoolManager)
   std::string Serialize() const;
   static HNSWIndex Deserialize(const std::string& data);
 
