@@ -2,6 +2,8 @@
 
 Official Python client for Vectis - A high-performance page-oriented vector database.
 
+An SDK is a set of tools, libraries, documentation, and code samples that help developers create applications for a specific platform or service. The Vectis Python SDK provides a convenient interface to interact with the Vectis database from Python applications.
+
 ## Installation
 
 ```bash

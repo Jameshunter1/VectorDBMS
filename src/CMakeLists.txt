@@ -85,14 +85,6 @@ core_engine_apply_project_options(dbcli)
 core_engine_apply_warnings(dbcli ${CORE_ENGINE_WARNINGS_AS_ERRORS})
 core_engine_apply_sanitizers(dbcli ${CORE_ENGINE_ENABLE_SANITIZERS})
 
-# ---- Tutorial (v1.4 interactive demo) ---------------------------------------
-add_executable(tutorial_v1.4 apps/tutorial/tutorial_v1.4.cpp)
-set_target_properties(tutorial_v1.4 PROPERTIES OUTPUT_NAME "tutorial_v1.4")
-target_link_libraries(tutorial_v1.4 PRIVATE core_engine::core_engine)
-core_engine_apply_project_options(tutorial_v1.4)
-core_engine_apply_warnings(tutorial_v1.4 ${CORE_ENGINE_WARNINGS_AS_ERRORS})
-core_engine_apply_sanitizers(tutorial_v1.4 ${CORE_ENGINE_ENABLE_SANITIZERS})
-
 # ---- Web frontend (developer demo) ------------------------------------------
 if(CORE_ENGINE_BUILD_WEB)
   include(FetchContent)
