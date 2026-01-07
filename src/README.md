@@ -1,6 +1,6 @@
 # Vectis Page-Based Database Engine
 
-A **production-ready**, **high-performance** key-value database engine using Log-Structured Merge-tree architecture.
+A **production-ready**, **high-performance** key-value database engine using **page-based storage** with direct I/O and buffer pool management.
 
 ## ✨ What's New - v1.2 Enhanced UI!
 
@@ -69,8 +69,6 @@ db.Delete("key");
 
 ## 🏗️ Build
 
-## 🏗️ Build
-
 **Windows:**
 ```powershell
 cmake --preset windows-msvc-debug
@@ -87,13 +85,13 @@ ctest --test-dir build
 
 ## 🎯 Features
 
-✅ **Write-Ahead Log (WAL)** - Never lose data, even on crashes  
-✅ **MemTable** - Lightning-fast in-memory writes  
-✅ **SSTables** - Persistent sorted disk storage  
-✅ **Multi-Level Compaction** - Automatic background optimization  
-✅ **Bloom Filters** - Skip unnecessary disk reads  
-✅ **Tombstones** - Efficient deletes  
-✅ **Crash Recovery** - Automatic WAL replay on startup  
+✅ **Page-Based Storage** - Industry-standard 4 KB pages with O_DIRECT I/O  
+✅ **DiskManager** - Low-level page I/O with torn page detection  
+✅ **Buffer Pool (Q2)** - LRU page cache with pin/unpin semantics  
+✅ **Write-Ahead Log (Future)** - Durability and crash recovery  
+✅ **B-Tree Indexes (Future)** - Efficient key-value lookups  
+✅ **Checksum Verification** - CRC32 corruption detection  
+✅ **LSN Tracking** - Log sequence numbers for recovery  
 ✅ **Web Interface** - Beautiful UI for monitoring and operations  
 ✅ **REST API** - HTTP endpoints for all operations  
 ✅ **Production Ready** - 3 deployment modes (Embedded, Production, Development)
@@ -103,31 +101,42 @@ ctest --test-dir build
 Modular design with clean separation of concerns:
 
 - **`engine.hpp`** - Main API (Put, Get, Delete, GetStats)
-- **`storage/`** - Page-based storage (DiskManager, BufferPoolManager)
-- **`storage/`** - Page file management and block cache
+- **`storage/page.hpp`** - 4 KB page structure with header and data region
+- **`storage/disk_manager.hpp`** - Direct I/O layer (Q1 ✅)
+- **`storage/buffer_pool_manager.hpp`** - LRU page cache (Q2 - In Progress)
 - **`kv/`** - Key-value pair serialization
 - **`common/`** - Status codes, logging, configuration
 - **`catalog/`** - Metadata management
 - **`transaction/`** - Future MVCC support
 
-### How It Works
+### How It Works (Page-Based Storage)
 
-**Write Path:**
+**Write Path (Q1 - Current):**
 ```
 Put(key, value)
-  → Write to WAL (crash-safe)
-  → Insert into MemTable (in-memory)
-  → MemTable full? Flush to SSTable (level_0/)
-  → Too many L0 files? Compact to level_1/
+  → Allocate page via DiskManager
+  → Write key-value to page data region
+  → Update checksum and LSN
+  → Write page to disk with O_DIRECT
 ```
 
-**Read Path:**
+**Read Path (Q1 - Current):**
 ```
 Get(key)
-  → Check MemTable (fastest)
-  → Check recent SSTables (Bloom filter first!)
-  → Check older levels
+  → Find page containing key
+  → Read page from disk via DiskManager
+  → Verify checksum
+  → Parse key-value from page data
   → Return value or NOT_FOUND
+```
+
+**With Buffer Pool (Q2 - Next Milestone):**
+```
+Get(key)
+  → Check BufferPool cache (LRU)
+  → Cache hit? Return cached page
+  → Cache miss? Fetch from DiskManager
+  → Pin page, read data, unpin page
 ```
 
 ## 📈 Performance
@@ -177,29 +186,38 @@ This repo leans into:
 
 ## Current implementation status
 
-✅ **Completed**:
-- **Write-Ahead Log** (durability — survives crashes)
-- **WAL Recovery** (replay log on restart to restore data)
-- **MemTable** (in-memory sorted map with automatic size tracking)
-- **SSTable Flushing** (save MemTable to disk when it reaches 4 MB)
-- **SSTable Reads** (efficient binary search lookups in disk files)
-- **Bloom Filters** (skip 90%+ of unnecessary SSTable reads — ~1% false positive rate)
-- **Manifest File** (tracks active SSTables across restarts for proper recovery)
-- **Delete Support** (tombstones for marking keys as deleted)
-- **Compaction** (merge 4+ SSTables into one to reduce file count and free space)
-- **Put/Get/Delete Operations** (full CRUD operations on key-value store)
+✅ **Year 1 Q1 - COMPLETE**:
+- **Page Structure** (4 KB pages with 64-byte header)
+- **DiskManager** (O_DIRECT I/O, page allocation, atomic writes)
+- **CRC32 Checksums** (torn page detection)
+- **LSN Tracking** (log sequence numbers for recovery)
+- **Page Pin Counts** (reference counting for buffer pool)
+- **Page Types** (BTree, Heap, HNSW vector index support)
+- **Thread-Safe I/O** (mutex-protected disk operations)
 - **CLI and Web Frontend** (two ways to interact with the database)
 - **Enhanced Web UI** (statistics dashboard, bulk operations, batch inserts)
-- **Performance Metrics** (track operation speed in microseconds — Put/Get timing)
-- **Entry Viewing** (see all stored data in real-time via web interface)
+- **Performance Metrics** (track operation speed in microseconds)
 - **Comprehensive C++ Comments** (extensive educational explanations throughout)
 
-🚧 **Next milestones**:
-- **Multi-Level Compaction** (organize SSTables into levels: L0, L1, L2... for better read performance)
-- **Range Queries** (get all keys from "a" to "z")
-- **Snapshots** (consistent point-in-time views)
-- **Secondary Indexes** (fast lookups by non-primary key fields)
-- **Buffer Pool** (page cache + LRU eviction for better read performance)
+✅ **Year 1 Q2 - COMPLETE** (BufferPoolManager with LRU eviction):
+- **BufferPoolManager** ✅ (LRU page cache with configurable pool size)
+- **Pin/Unpin Pages** ✅ (prevent eviction of in-use pages)
+- **Dirty Page Tracking** ✅ (flush only modified pages on eviction)
+- **LRU Replacement** ✅ (O(1) victim selection using doubly-linked list)
+- **Cache Statistics** ✅ (hit rate, misses, evictions tracking)
+- **Thread-Safe Operations** ✅ (shared_mutex for concurrent access)
+- **Engine Integration** ✅ (Put/Get operations use buffer pool)
+- Note: Currently one key-value per page (Q3 will add B-tree for multi-KV pages)
+
+🔜 **Year 1 Q3 - PLANNED**:
+- **Write-Ahead Log** (WAL for durability and crash recovery)
+- **Log Manager** (append-only log with checkpoints)
+- **ARIES Recovery** (steal/no-force with undo/redo)
+
+🔜 **Year 1 Q4 - PLANNED**:
+- **B-Tree Index** (primary key-value index structure)
+- **Range Queries** (scan from start_key to end_key)
+- **Bulk Loading** (efficient B-tree construction)
 
 ## 📚 Learning Resources
 

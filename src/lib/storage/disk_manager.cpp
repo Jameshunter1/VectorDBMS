@@ -219,8 +219,8 @@ PageId DiskManager::AllocatePage() {
   
   // Page 0 is reserved, so first valid page is 1
   // New pages are appended to the end of the file
-  const PageId new_page_id = (num_pages_ == 0) ? 1 : num_pages_;
-  
+  const PageId new_page_id = (num_pages_ == 0) ? 1 : num_pages_ + 1;
+
   // Grow file by one page
   // Seek to end and write a zero page
   const std::int64_t offset = PageIdToOffset(new_page_id);
@@ -241,8 +241,9 @@ PageId DiskManager::AllocatePage() {
     Log(LogLevel::kError, "Failed to allocate page");
     return kInvalidPageId;
   }
-  
-  ++num_pages_;
+
+  // Update num_pages_ to include the newly allocated page
+  num_pages_ = new_page_id + 1;
   ++stats_.total_allocations;
   
   return new_page_id;

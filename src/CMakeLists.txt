@@ -55,6 +55,7 @@ target_sources(core_engine
     lib/catalog/catalog.cpp
     lib/storage/page.cpp
     lib/storage/disk_manager.cpp
+    lib/storage/buffer_pool_manager.cpp
     lib/transaction/txn.cpp
     lib/execution/executor.cpp
     lib/engine.cpp

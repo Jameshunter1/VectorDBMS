@@ -6,9 +6,10 @@
 // - Small, stable façade for embedding the engine.
 // - Keeps subsystems behind one well-known lifecycle entry point.
 //
-// Current state (Year 1 Q1 - Page & Disk Layer):
+// Current state (Year 1 Q2 - Buffer Pool Layer):
 // - Open creates DiskManager for page-level I/O.
-// - Put/Get use page-based storage (Year 1 Q2 will add BufferPoolManager).
+// - BufferPoolManager caches pages with LRU eviction.
+// - Put/Get use buffered page storage with pin/unpin semantics.
 // - Execute is reserved for a future SQL/query layer.
 
 #include <filesystem>
@@ -19,6 +20,7 @@
 
 #include <core_engine/common/config.hpp>
 #include <core_engine/common/status.hpp>
+#include <core_engine/storage/buffer_pool_manager.hpp>
 #include <core_engine/storage/disk_manager.hpp>
 #include <core_engine/vector/hnsw_index.hpp>
 #include <core_engine/vector/vector.hpp>
@@ -49,11 +51,11 @@ class Engine {
   // Opens with explicit configuration (production mode).
   Status Open(const DatabaseConfig& config);
 
-  // Year 1 Q1 page-based API.
+  // Year 1 Q2 page-based API with buffer pool.
   //
-  // These methods are deliberately simple:
-  // - Put writes to pages via DiskManager (BufferPoolManager in Q2).
-  // - Get reads from pages via DiskManager.
+  // These methods use BufferPoolManager for efficient caching:
+  // - Put writes to pages via BufferPoolManager (cached).
+  // - Get reads from pages via BufferPoolManager (cached).
   // - Delete removes keys (future: tombstone pages).
   Status Put(std::string key, std::string value);
   std::optional<std::string> Get(std::string key);
@@ -138,7 +140,8 @@ class Engine {
   std::vector<std::pair<std::string, std::string>> GetAllEntries() const;
 
  private:
-   std::unique_ptr<DiskManager> disk_manager_; // Page-level I/O (Year 1 Q1)
+   std::unique_ptr<DiskManager> disk_manager_;              // Page-level I/O (Year 1 Q1)
+   std::unique_ptr<BufferPoolManager> buffer_pool_manager_; // Page cache with LRU (Year 1 Q2)
    bool is_open_ = false;
 
    // Vector database components

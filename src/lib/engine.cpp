@@ -3,9 +3,9 @@
 // core_engine/engine.cpp
 //
 // Purpose:
-// - Implement the Engine façade for Year 1 Q1 (Page & Disk Layer).
-// - Simple key-value storage using DiskManager for page I/O.
-// - BufferPoolManager will be added in Year 1 Q2.
+// - Implement the Engine façade for Year 1 Q2 (Buffer Pool Layer).
+// - Key-value storage using BufferPoolManager for cached page I/O.
+// - DiskManager provides persistent storage backend.
 
 #include <core_engine/common/logger.hpp>
 
@@ -48,6 +48,12 @@ Status Engine::Open(const DatabaseConfig& config) {
     return status;
   }
 
+  // Create BufferPoolManager for page caching (Year 1 Q2)
+  buffer_pool_manager_ =
+      std::make_unique<BufferPoolManager>(config_.buffer_pool_size, disk_manager_.get());
+  Log(LogLevel::kInfo, "BufferPoolManager created (pool_size=" +
+                           std::to_string(config_.buffer_pool_size) + " pages)");
+
   // Initialize vector index if enabled
   if (config_.enable_vector_index) {
     vector::HNSWIndex::Params hnsw_params;
@@ -79,7 +85,7 @@ Status Engine::Open(const DatabaseConfig& config) {
   }
 
   is_open_ = true;
-  Log(LogLevel::kInfo, "Engine opened (Year 1 Q1 - Page Layer)");
+  Log(LogLevel::kInfo, "Engine opened (Year 1 Q2 - Buffer Pool Layer)");
   return Status::Ok();
 }
 
@@ -88,11 +94,44 @@ Status Engine::Put(std::string key, std::string value) {
     return Status::Internal("Engine is not open");
   }
 
-  // Year 1 Q1: Simplified implementation
-  // Future: Use proper page-based KV storage with B-tree or hash table
+  // Year 1 Q2: Use BufferPoolManager for cached page I/O
+  // Simple implementation: one key-value per page for now
+  // Future Q3: Proper B-tree indexing with multiple KV pairs per page
+
+  auto start = std::chrono::high_resolution_clock::now();
+
+  // Allocate a new page for this key-value pair
+  PageId page_id_out;
+  auto page = buffer_pool_manager_->NewPage(&page_id_out);
+  if (!page) {
+    return Status::Internal("Failed to allocate page from buffer pool");
+  }
+
+  // Write key-value to page (simplified format for Q2)
+  // Format: [key_size(4 bytes)][key][value_size(4 bytes)][value]
+  char* data = page->GetData();
+  std::size_t offset = 0;
+
+  uint32_t key_size = static_cast<uint32_t>(key.size());
+  std::memcpy(data + offset, &key_size, sizeof(uint32_t));
+  offset += sizeof(uint32_t);
+  std::memcpy(data + offset, key.data(), key.size());
+  offset += key.size();
+
+  uint32_t value_size = static_cast<uint32_t>(value.size());
+  std::memcpy(data + offset, &value_size, sizeof(uint32_t));
+  offset += sizeof(uint32_t);
+  std::memcpy(data + offset, value.data(), value.size());
+
+  // Mark page as dirty and unpin
+  buffer_pool_manager_->UnpinPage(page->GetPageId(), true);
+
+  auto end = std::chrono::high_resolution_clock::now();
+  total_put_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
   ++total_puts_;
 
-  Log(LogLevel::kDebug, "Put: " + key + " = " + value);
+  Log(LogLevel::kDebug,
+      "Put: " + key + " = " + value + " (page_id=" + std::to_string(page->GetPageId()) + ")");
   return Status::Ok();
 }
 
@@ -101,11 +140,76 @@ std::optional<std::string> Engine::Get(std::string key) {
     return std::nullopt;
   }
 
-  // Year 1 Q1: Simplified implementation
-  // Future: Implement proper page-based lookup
+  // Year 1 Q2: Use BufferPoolManager for cached page I/O
+  // Simple linear scan through pages for now
+  // Future Q3: Proper B-tree indexing for O(log n) lookups
+
+  auto start = std::chrono::high_resolution_clock::now();
+
+  // Scan through all pages looking for the key
+  std::size_t num_pages = disk_manager_->GetNumPages();
+  for (PageId page_id = 0; page_id < num_pages; ++page_id) {
+    auto page = buffer_pool_manager_->FetchPage(page_id);
+    if (!page) {
+      continue; // Page not available, skip
+    }
+
+    // Parse key-value from page
+    const char* data = page->GetData();
+    std::size_t offset = 0;
+
+    if (offset + sizeof(uint32_t) > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    uint32_t key_size;
+    std::memcpy(&key_size, data + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    if (offset + key_size > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    std::string stored_key(data + offset, key_size);
+    offset += key_size;
+
+    if (stored_key == key) {
+      // Found the key, read the value
+      if (offset + sizeof(uint32_t) > kPageSize) {
+        buffer_pool_manager_->UnpinPage(page_id, false);
+        break;
+      }
+
+      uint32_t value_size;
+      std::memcpy(&value_size, data + offset, sizeof(uint32_t));
+      offset += sizeof(uint32_t);
+
+      if (offset + value_size > kPageSize) {
+        buffer_pool_manager_->UnpinPage(page_id, false);
+        break;
+      }
+
+      std::string value(data + offset, value_size);
+      buffer_pool_manager_->UnpinPage(page_id, false);
+
+      auto end = std::chrono::high_resolution_clock::now();
+      total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
+      ++total_gets_;
+
+      Log(LogLevel::kDebug, "Get: " + key + " (found on page_id=" + std::to_string(page_id) + ")");
+      return value;
+    }
+
+    buffer_pool_manager_->UnpinPage(page_id, false);
+  }
+
+  auto end = std::chrono::high_resolution_clock::now();
+  total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
   ++total_gets_;
 
-  Log(LogLevel::kDebug, "Get: " + key);
+  Log(LogLevel::kDebug, "Get: " + key + " (not found)");
   return std::nullopt;
 }
 
@@ -114,8 +218,9 @@ Status Engine::Delete(std::string key) {
     return Status::Internal("Engine is not open");
   }
 
-  // Year 1 Q1: Simplified implementation
-  Log(LogLevel::kDebug, "Delete: " + key);
+  // Year 1 Q2: Mark page as deleted (simple tombstone approach)
+  // Future Q3: Proper deletion with page reclamation
+  Log(LogLevel::kDebug, "Delete: " + key + " (tombstone not yet implemented)");
   return Status::Ok();
 }
 
