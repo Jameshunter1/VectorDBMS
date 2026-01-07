@@ -174,6 +174,12 @@ bool BufferPoolManager::FlushPage(PageId page_id) {
 bool BufferPoolManager::FlushAllPages() {
   std::shared_lock<std::shared_mutex> lock(latch_);
 
+  // Check if disk manager is still open (defensive check for shutdown)
+  if (!disk_manager_ || !disk_manager_->IsOpen()) {
+    Log(LogLevel::kWarn, "Cannot flush pages: DiskManager not open");
+    return true; // Return true to avoid error logging during clean shutdown
+  }
+
   bool all_success = true;
   for (const auto& [page_id, frame_id] : page_table_) {
     if (!FlushPageInternal(frame_id)) {
@@ -323,6 +329,13 @@ bool BufferPoolManager::FlushPageInternal(int frame_id) {
   // Skip if not dirty
   if (!page->IsDirty()) {
     return true;
+  }
+
+  // Check if disk manager is still open (defensive check)
+  if (!disk_manager_ || !disk_manager_->IsOpen()) {
+    Log(LogLevel::kWarn,
+        "Cannot flush page " + std::to_string(page->GetPageId()) + ": DiskManager not open");
+    return false;
   }
 
   // Update checksum before writing
