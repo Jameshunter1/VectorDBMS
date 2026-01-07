@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vectis Database - Modern Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 30px 40px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .header-stat {
+            text-align: center;
+        }
+
+        .header-stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .header-stat-label {
+            font-size: 12px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .icon-primary { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .icon-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .icon-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .icon-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .stat-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            margin-top: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .stat-change.positive {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .stat-change.negative {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .chart-container {
+            height: 200px;
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .operations-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 8px;
+        }
+
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-right: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #64748b;
+            color: white;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .table th {
+            background: var(--light);
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .table tr:hover {
+            background: var(--light);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-primary { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+        .console {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+        .console-line {
+            margin-bottom: 4px;
+        }
+
+        .console-success { color: #10b981; }
+        .console-error { color: #ef4444; }
+        .console-info { color: #3b82f6; }
+        .console-warning { color: #f59e0b; }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+
+        .status-online { background: var(--success); }
+        .status-offline { background: var(--danger); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .metric-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <div class="logo">🗄️</div>
+                <div>
+                    <div>Vectis Database Engine</div>
+                    <div style="font-size: 14px; color: #64748b; font-weight: 400; margin-top: 4px;">
+                        <span class="status-indicator status-online"></span> Production Dashboard v2.0
+                    </div>
+                </div>
+            </h1>
+            <div class="header-stats">
+                <div class="header-stat">
+                    <div class="header-stat-value" id="total-entries">0</div>
+                    <div class="header-stat-label">Total Entries</div>
+                </div>
+                <div class="header-stat">
+                    <div class="header-stat-value" id="total-ops">0</div>
+                    <div class="header-stat-label">Operations</div>
+                </div>
+                <div class="header-stat">
+                    <div class="header-stat-value" id="uptime">0s</div>
+                    <div class="header-stat-label">Uptime</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Total Reads</div>
+                    <div class="card-icon icon-primary">📖</div>
+                </div>
+                <div class="stat-value" id="stat-reads">0</div>
+                <div class="stat-label">Read operations</div>
+                <div class="stat-change positive" id="reads-change">
+                    ↑ 0 /sec
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Total Writes</div>
+                    <div class="card-icon icon-success">✍️</div>
+                </div>
+                <div class="stat-value" id="stat-writes">0</div>
+                <div class="stat-label">Write operations</div>
+                <div class="stat-change positive" id="writes-change">
+                    ↑ 0 /sec
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Avg Read Time</div>
+                    <div class="card-icon icon-warning">⚡</div>
+                </div>
+                <div class="stat-value" id="stat-read-time">0µs</div>
+                <div class="stat-label">Per operation</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="read-time-progress" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Avg Write Time</div>
+                    <div class="card-icon icon-danger">⚡</div>
+                </div>
+                <div class="stat-value" id="stat-write-time">0µs</div>
+                <div class="stat-label">Per operation</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="write-time-progress" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Operations Panel -->
+        <div class="operations-panel">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('operations')">⚡ Operations</button>
+                <button class="tab" onclick="switchTab('data')">📊 Data Browser</button>
+                <button class="tab" onclick="switchTab('performance')">🚀 Performance</button>
+                <button class="tab" onclick="switchTab('console')">💻 Console</button>
+            </div>
+
+            <div id="tab-operations" class="tab-content active">
+                <div class="grid">
+                    <div>
+                        <h3 style="margin-bottom: 16px;">Single Operations</h3>
+                        <div class="form-group">
+                            <label class="form-label">Key</label>
+                            <input type="text" class="form-input" id="key" placeholder="user_123">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Value</label>
+                            <textarea class="form-textarea" id="value" placeholder='{"name":"Alice","age":30}'></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="doPut()">PUT</button>
+                        <button class="btn btn-success" onclick="doGet()">GET</button>
+                        <button class="btn btn-danger" onclick="doDelete()">DELETE</button>
+                    </div>
+
+                    <div>
+                        <h3 style="margin-bottom: 16px;">Bulk Operations</h3>
+                        <div class="form-group">
+                            <label class="form-label">Batch Data (key=value per line)</label>
+                            <textarea class="form-textarea" id="batch-input" placeholder="user_1=Alice&#10;user_2=Bob"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="doBatch()">Batch Insert</button>
+                        <button class="btn btn-secondary" onclick="generateTestData()">Generate Test Data</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-data" class="tab-content">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+                    <h3>Database Entries (<span id="entry-count">0</span>)</h3>
+                    <div>
+                        <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
+                        <button class="btn btn-success" onclick="exportData()">📥 Export</button>
+                        <button class="btn btn-danger" onclick="clearData()">🗑️ Clear All</button>
+                    </div>
+                </div>
+                <input type="text" class="form-input" placeholder="🔍 Search keys..." style="margin-bottom: 16px;" oninput="filterData(this.value)">
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <table class="table" id="data-table">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Value</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-tbody">
+                            <tr><td colspan="3" style="text-align: center; color: #64748b;">No entries</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tab-performance" class="tab-content">
+                <h3 style="margin-bottom: 16px;">Performance Metrics</h3>
+                <div class="grid">
+                    <div class="card">
+                        <h4 style="margin-bottom: 12px; color: var(--primary);">Storage</h4>
+                        <div class="metric-row">
+                            <span class="metric-label">Total Pages</span>
+                            <span class="metric-value" id="perf-pages">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Cache Hit Rate</span>
+                            <span class="metric-value" id="perf-hit-rate">0%</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Checksum Failures</span>
+                            <span class="metric-value" id="perf-checksum">0</span>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h4 style="margin-bottom: 12px; color: var(--success);">Operations/sec</h4>
+                        <div class="metric-row">
+                            <span class="metric-label">Reads/sec</span>
+                            <span class="metric-value" id="perf-reads-sec">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Writes/sec</span>
+                            <span class="metric-value" id="perf-writes-sec">0</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Throughput</span>
+                            <span class="metric-value" id="perf-throughput">0 KB/s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-console" class="tab-content">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
+                    <h3>System Console</h3>
+                    <button class="btn btn-secondary" onclick="clearConsole()">Clear</button>
+                </div>
+                <div class="console" id="console">
+                    <div class="console-line console-info">[INFO] Dashboard initialized</div>
+                    <div class="console-line console-success">[SUCCESS] Connected to database</div>
+                    <div class="console-line">[SYSTEM] Ready for operations</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API endpoint - change this if your server runs on a different port
+        const API_BASE = 'http://127.0.0.1:8080/api';
+        
+        let allEntries = [];
+        let previousStats = null;
+        const startTime = Date.now();
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+            
+            if (tabName === 'data') refreshData();
+            if (tabName === 'performance') refreshStats();
+        }
+
+        function log(message, type = 'info') {
+            const console = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            const classes = {
+                'success': 'console-success',
+                'error': 'console-error',
+                'info': 'console-info',
+                'warning': 'console-warning'
+            };
+            
+            const line = document.createElement('div');
+            line.className = `console-line ${classes[type] || ''}`;
+            line.textContent = `[${timestamp}] ${message}`;
+            console.appendChild(line);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        async function refreshStats() {
+            try {
+                const res = await fetch(`${API_BASE}/stats`);
+                const stats = await res.json();
+                
+                document.getElementById('stat-reads').textContent = stats.total_reads || 0;
+                document.getElementById('stat-writes').textContent = stats.total_writes || 0;
+                document.getElementById('stat-read-time').textContent = (stats.avg_get_time_us || 0) + 'µs';
+                document.getElementById('stat-write-time').textContent = (stats.avg_put_time_us || 0) + 'µs';
+                
+                document.getElementById('total-ops').textContent = (stats.total_reads || 0) + (stats.total_writes || 0);
+                
+                // Calculate rates if we have previous stats
+                if (previousStats) {
+                    const deltaTime = 5; // 5 seconds refresh interval
+                    const readsPerSec = Math.max(0, Math.round((stats.total_reads - previousStats.total_reads) / deltaTime));
+                    const writesPerSec = Math.max(0, Math.round((stats.total_writes - previousStats.total_writes) / deltaTime));
+                    
+                    document.getElementById('reads-change').textContent = `↑ ${readsPerSec} /sec`;
+                    document.getElementById('writes-change').textContent = `↑ ${writesPerSec} /sec`;
+                    document.getElementById('perf-reads-sec').textContent = readsPerSec;
+                    document.getElementById('perf-writes-sec').textContent = writesPerSec;
+                }
+                
+                // Performance metrics
+                document.getElementById('perf-pages').textContent = stats.total_pages || 0;
+                document.getElementById('perf-checksum').textContent = stats.checksum_failures || 0;
+                
+                // Update progress bars (0-1000µs range)
+                const readProgress = Math.min(((stats.avg_get_time_us || 0) / 1000) * 100, 100);
+                const writeProgress = Math.min(((stats.avg_put_time_us || 0) / 1000) * 100, 100);
+                document.getElementById('read-time-progress').style.width = readProgress + '%';
+                document.getElementById('write-time-progress').style.width = writeProgress + '%';
+                
+                previousStats = stats;
+            } catch (err) {
+                log('Failed to refresh stats: ' + err.message, 'error');
+            }
+        }
+
+        async function refreshData() {
+            try {
+                const res = await fetch(`${API_BASE}/entries`);
+                const data = await res.json();
+                allEntries = data.entries || [];
+                
+                document.getElementById('total-entries').textContent = allEntries.length;
+                document.getElementById('entry-count').textContent = allEntries.length;
+                
+                renderData(allEntries);
+            } catch (err) {
+                log('Failed to load entries: ' + err.message, 'error');
+            }
+        }
+
+        function renderData(entries) {
+            const tbody = document.getElementById('data-tbody');
+            
+            if (entries.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #64748b;">No entries found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = entries.slice(0, 100).map(e => `
+                <tr>
+                    <td><span class="badge badge-primary">${escapeHtml(e.key)}</span></td>
+                    <td style="font-family: 'Courier New', monospace; font-size: 12px;">${escapeHtml(e.value.substring(0, 80))}${e.value.length > 80 ? '...' : ''}</td>
+                    <td>
+                        <button class="btn btn-success" style="padding: 6px 12px; font-size: 12px;" onclick='viewEntry(${JSON.stringify(e.key)})'>View</button>
+                        <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick='deleteEntry(${JSON.stringify(e.key)})'>Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterData(search) {
+            const filtered = allEntries.filter(e => 
+                e.key.toLowerCase().includes(search.toLowerCase()) ||
+                e.value.toLowerCase().includes(search.toLowerCase())
+            );
+            renderData(filtered);
+        }
+
+        async function doPut() {
+            const key = document.getElementById('key').value.trim();
+            const value = document.getElementById('value').value.trim();
+            
+            if (!key || !value) {
+                log('Key and value required', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/put`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({key, value})
+                });
+                
+                if (res.ok) {
+                    log(`✓ PUT "${key}"`, 'success');
+                    refreshStats();
+                } else {
+                    log(`✗ PUT failed: ${await res.text()}`, 'error');
+                }
+            } catch (err) {
+                log('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function doGet() {
+            const key = document.getElementById('key').value.trim();
+            
+            if (!key) {
+                log('Key required', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/get?key=` + encodeURIComponent(key));
+                
+                if (res.ok) {
+                    const value = await res.text();
+                    document.getElementById('value').value = value;
+                    log(`✓ GET "${key}"`, 'success');
+                } else {
+                    log(`✗ Key not found: "${key}"`, 'error');
+                }
+            } catch (err) {
+                log('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function doDelete() {
+            const key = document.getElementById('key').value.trim();
+            
+            if (!key) {
+                log('Key required', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/delete`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({key})
+                });
+                
+                if (res.ok) {
+                    log(`✓ DELETE "${key}"`, 'success');
+                    refreshStats();
+                    refreshData();
+                } else {
+                    log(`✗ DELETE failed`, 'error');
+                }
+            } catch (err) {
+                log('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function doBatch() {
+            const input = document.getElementById('batch-input').value.trim();
+            const lines = input.split('\n').filter(l => l.trim());
+            
+            log(`Batch inserting ${lines.length} entries...`, 'info');
+            
+            let success = 0;
+            for (const line of lines) {
+                const [key, ...rest] = line.split('=');
+                const value = rest.join('=');
+                
+                if (!key || !value) continue;
+                
+                try {
+                    const res = await fetch(`${API_BASE}/put`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: new URLSearchParams({key: key.trim(), value: value.trim()})
+                    });
+                    if (res.ok) success++;
+                } catch (err) {}
+            }
+            
+            log(`✓ Batch complete: ${success}/${lines.length}`, 'success');
+            refreshStats();
+        }
+
+        async function generateTestData() {
+            log('Generating 1000 test entries...', 'info');
+            
+            for (let i = 0; i < 1000; i++) {
+                await fetch(`${API_BASE}/put`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({
+                        key: `test_${i}`,
+                        value: `value_${i}_${Date.now()}`
+                    })
+                });
+                
+                if (i % 100 === 0) {
+                    log(`Progress: ${i}/1000...`, 'info');
+                }
+            }
+            
+            log('✓ Generated 1000 entries', 'success');
+            refreshStats();
+        }
+
+        function viewEntry(key) {
+            document.getElementById('key').value = key;
+            doGet();
+            switchTab('operations');
+            document.querySelector('.tab').click();
+        }
+
+        async function deleteEntry(key) {
+            if (!confirm(`Delete "${key}"?`)) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/delete`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({key})
+                });
+                
+                if (res.ok) {
+                    log(`✓ Deleted "${key}"`, 'success');
+                    refreshData();
+                    refreshStats();
+                }
+            } catch (err) {
+                log('Error: ' + err.message, 'error');
+            }
+        }
+
+        function exportData() {
+            const data = JSON.stringify(allEntries, null, 2);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vectis-export-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            log(`✓ Exported ${allEntries.length} entries`, 'success');
+        }
+
+        async function clearData() {
+            if (!confirm('Delete ALL entries? This cannot be undone!')) return;
+            
+            log('Clearing database...', 'warning');
+            
+            for (const entry of allEntries) {
+                await fetch(`${API_BASE}/delete`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({key: entry.key})
+                });
+            }
+            
+            log('✓ Database cleared', 'success');
+            refreshData();
+            refreshStats();
+        }
+
+        function clearConsole() {
+            document.getElementById('console').innerHTML = '<div class="console-line console-info">[INFO] Console cleared</div>';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function updateUptime() {
+            const seconds = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                document.getElementById('uptime').textContent = `${hours}h ${minutes % 60}m`;
+            } else if (minutes > 0) {
+                document.getElementById('uptime').textContent = `${minutes}m ${seconds % 60}s`;
+            } else {
+                document.getElementById('uptime').textContent = `${seconds}s`;
+            }
+        }
+
+        // Initialize
+        refreshStats();
+        refreshData();
+        
+        // Auto-refresh
+        setInterval(refreshStats, 5000);
+        setInterval(updateUptime, 1000);
+        
+        log('Dashboard ready', 'success');
+    </script>
+</body>
+</html>
