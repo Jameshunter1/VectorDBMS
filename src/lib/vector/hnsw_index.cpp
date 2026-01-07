@@ -1,8 +1,9 @@
 #include <core_engine/vector/hnsw_index.hpp>
 #include <algorithm>
-#include <queue>
 #include <cmath>
 #include <limits>
+#include <mutex>
+#include <queue>
 
 namespace core_engine {
 namespace vector {

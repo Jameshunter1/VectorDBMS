@@ -500,7 +500,7 @@ TEST_CASE("Engine Scan returns correct range results") {
   }
 
   // Test basic range scan
-  core_engine::Engine::ScanOptions opts;
+  core_engine::ScanOptions opts;
   auto results = engine.Scan("key_010", "key_020", opts);
   REQUIRE(results.size() == 10);  // key_010 to key_019
 

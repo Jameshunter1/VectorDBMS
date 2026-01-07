@@ -109,7 +109,7 @@ void test_range_scan() {
   }
   
   // Scan range [key_10, key_20)
-  Engine::ScanOptions options;
+  core_engine::ScanOptions options;
   auto results = engine.Scan("key_10", "key_20", options);
   
   assert(results.size() == 10 && "Should return 10 keys");
