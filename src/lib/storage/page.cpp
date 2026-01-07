@@ -1,5 +1,6 @@
 #include <core_engine/storage/page.hpp>
 
+#include <cstddef>
 #include <cstring>
 
 namespace core_engine {

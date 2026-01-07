@@ -23,6 +23,7 @@
 #include <core_engine/storage/disk_manager.hpp>
 #include <core_engine/storage/page.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <list>
 #include <memory>

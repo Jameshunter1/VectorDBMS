@@ -312,6 +312,9 @@ Status LogManager::ScanForward(LSN start_lsn,
 
 Status LogManager::ScanBackward(LSN start_lsn,
                                std::function<void(const LogRecord&)> callback) {
+  // Suppress unused parameter warnings for unimplemented function
+  (void)start_lsn;
+  (void)callback;
   // TODO: Implement backward scan (requires storing record offsets or scanning forward first)
   return Status::Unimplemented("Backward scan not yet implemented");
 }
