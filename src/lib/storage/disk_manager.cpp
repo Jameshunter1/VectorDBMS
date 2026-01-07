@@ -95,7 +95,7 @@ Status DiskManager::Open() {
   num_pages_ = static_cast<PageId>(file_size / kPageSize);
   is_open_ = true;
 
-  Log(LogLevel::kInfo,
+  Log(LogLevel::kDebug,
       "DiskManager opened: " + db_file_.string() + " (" + std::to_string(num_pages_) + " pages)");
 
   return Status::Ok();
@@ -116,7 +116,7 @@ void DiskManager::Close() {
 
   is_open_ = false;
 
-  Log(LogLevel::kInfo, "DiskManager closed: " + db_file_.string());
+  Log(LogLevel::kDebug, "DiskManager closed: " + db_file_.string());
 }
 
 Status DiskManager::ReadPage(PageId page_id, Page* page) {

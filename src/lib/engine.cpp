@@ -68,13 +68,13 @@ Status Engine::Open(const DatabaseConfig& config) {
   // Create BufferPoolManager for page caching (Year 1 Q3 - LRU-K)
   buffer_pool_manager_ =
       std::make_unique<BufferPoolManager>(config_.buffer_pool_size, disk_manager_.get());
-  Log(LogLevel::kInfo, "BufferPoolManager created (pool_size=" +
-                           std::to_string(config_.buffer_pool_size) + " pages, LRU-K eviction)");
+  Log(LogLevel::kDebug, "BufferPoolManager created (pool_size=" +
+                            std::to_string(config_.buffer_pool_size) + " pages, LRU-K eviction)");
 
   // Create LogManager for write-ahead logging (Year 1 Q4 - WAL)
   auto log_file = config_.data_dir / "wal.log";
   log_manager_ = std::make_unique<LogManager>(log_file.string());
-  Log(LogLevel::kInfo, "LogManager created (log_file=" + log_file.string() + ")");
+  Log(LogLevel::kDebug, "LogManager created (log_file=" + log_file.string() + ")");
 
   // Initialize vector index if enabled
   if (config_.enable_vector_index) {
@@ -165,11 +165,11 @@ Status Engine::Open(const DatabaseConfig& config) {
     buffer_pool_manager_->UnpinPage(page_id, false);
   }
 
-  Log(LogLevel::kInfo, "Index rebuilt: " + std::to_string(keys_indexed) + " keys indexed from " +
-                           std::to_string(num_pages) + " pages");
+  Log(LogLevel::kDebug, "Index rebuilt: " + std::to_string(keys_indexed) + " keys indexed from " +
+                            std::to_string(num_pages) + " pages");
 
   is_open_ = true;
-  Log(LogLevel::kInfo, "Engine opened (Year 1 Q4 - Write-Ahead Logging + LRU-K Buffer Pool)");
+  Log(LogLevel::kDebug, "Engine opened (Year 1 Q4 - Write-Ahead Logging + LRU-K Buffer Pool)");
   return Status::Ok();
 }
 

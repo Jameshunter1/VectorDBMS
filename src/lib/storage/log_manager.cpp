@@ -175,7 +175,7 @@ LogManager::LogManager(const std::string& log_file)
     // For now, assume empty log or recovery will handle this
   }
 
-  Log(LogLevel::kInfo,
+  Log(LogLevel::kDebug,
       "LogManager initialized, log file: " + log_file + ", offset: " + std::to_string(log_offset_));
 }
 
@@ -185,7 +185,7 @@ LogManager::~LogManager() {
     ForceFlush();
     log_stream_.close();
   }
-  Log(LogLevel::kInfo, "LogManager destroyed");
+  Log(LogLevel::kDebug, "LogManager destroyed");
 }
 
 LSN LogManager::AppendBeginRecord(TxnId txn_id, LSN prev_lsn) {

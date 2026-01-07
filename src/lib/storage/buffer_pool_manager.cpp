@@ -25,16 +25,16 @@ BufferPoolManager::BufferPoolManager(std::size_t pool_size, DiskManager* disk_ma
     free_list_.push_back(static_cast<int>(i));
   }
 
-  Log(LogLevel::kInfo, "BufferPoolManager initialized with " + std::to_string(pool_size) +
-                           " pages (" + std::to_string(pool_size * kPageSize / 1024) +
-                           " KB) using LRU-2 eviction");
+  Log(LogLevel::kDebug, "BufferPoolManager initialized with " + std::to_string(pool_size) +
+                            " pages (" + std::to_string(pool_size * kPageSize / 1024) +
+                            " KB) using LRU-2 eviction");
 }
 
 BufferPoolManager::~BufferPoolManager() {
   // Flush all dirty pages before shutdown
   FlushAllPages();
   delete[] pages_;
-  Log(LogLevel::kInfo, "BufferPoolManager destroyed");
+  Log(LogLevel::kDebug, "BufferPoolManager destroyed");
 }
 
 Page* BufferPoolManager::FetchPage(PageId page_id) {
