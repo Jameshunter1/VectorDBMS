@@ -6,19 +6,36 @@ This is a **C++20 page-oriented vector database engine** designed for production
 
 **Design Philosophy**: Treat the OS as a slow coordinator. Explicit memory management, deterministic behavior, and performance transparency over convenience.
 
-### Core Components (Storage Layer - Year 1)
+**Repository Structure**:
+- `src/`: Main codebase root - all CMake configuration starts here
+- `src/include/core_engine/`: Public headers organized by subsystem
+- `src/lib/`: Implementation files mirroring include structure
+- `src/apps/`: Executables (dbcli, dbweb, tutorial examples)
+- `tests/`: Catch2 test suite (separate CMakeLists.txt)
+- `benchmarks/`: Google Benchmark performance tests
+- `build/`: Generated build artifacts (gitignored, created by CMake)
 
-- **`Page`** ([page.hpp](../src/include/core_engine/storage/page.hpp)): 4 KB fixed-size page with LSN, pin_count, dirty flag, and CRC32 checksum. Cache-line aligned for optimal CPU performance.
-- **`DiskManager`** ([disk_manager.hpp](../src/include/core_engine/storage/disk_manager.hpp)): Raw block I/O with O_DIRECT for kernel bypass. Manages page allocation, atomic writes, and file-level operations.
-- **`BufferPoolManager`** ([buffer_pool.hpp](../src/include/core_engine/storage/buffer_pool.hpp)): Thread-safe page cache with frame pinning, dirty page tracking, and eviction coordination (Year 1 Q2).
-- **`LRUKReplacer`** ([lru_k_replacer.hpp](../src/include/core_engine/storage/lru_k_replacer.hpp)): Eviction policy tracking last K access timestamps for optimal cache efficiency (Year 1 Q3).
-- **`LogManager`** ([log_manager.hpp](../src/include/core_engine/storage/log_manager.hpp)): Sequential WAL with group commit, enforcing write-ahead logging for ACID durability (Year 1 Q4).
+### Core Components (Storage Layer - Implemented)
 
-### Vector Database Components (Year 4 - Already Implemented)
+- **`Page`** ([page.hpp](../src/include/core_engine/storage/page.hpp)): 4 KB fixed-size page with LSN, pin_count, dirty flag, and CRC32 checksum. Cache-line aligned for optimal CPU performance. ✅ COMPLETE
+- **`DiskManager`** ([disk_manager.hpp](../src/include/core_engine/storage/disk_manager.hpp)): Raw block I/O for page allocation and atomic writes. File-based implementation (O_DIRECT planned for Year 2). ✅ COMPLETE
+- **`BufferPoolManager`** ([buffer_pool_manager.hpp](../src/include/core_engine/storage/buffer_pool_manager.hpp)): Thread-safe page cache with frame pinning, dirty page tracking, and LRU-K eviction. ✅ COMPLETE
+- **`LogManager`** ([log_manager.hpp](../src/include/core_engine/storage/log_manager.hpp)): Sequential WAL with ARIES-style recovery (Analysis, Redo, Undo). ✅ COMPLETE
+- **`PageFile`** ([page_file.hpp](../src/include/core_engine/storage/page_file.hpp)): Higher-level abstraction over BufferPoolManager for KV storage with MemTable/SSTable architecture. ✅ COMPLETE
 
-- **`HNSWIndex`** ([hnsw_index.hpp](../src/include/core_engine/vector/hnsw_index.hpp)): Hierarchical Navigable Small World graph for O(log N) approximate nearest neighbor search. Thread-safe with shared_mutex.
-- **`Vector`** ([vector.hpp](../src/include/core_engine/vector/vector.hpp)): SIMD-optimized distance calculations (Cosine, Euclidean, Dot Product, Manhattan). Float32 aligned for AVX2/AVX-512.
-- **`DatabaseConfig::vector_*`** ([config.hpp](../src/include/core_engine/common/config.hpp)): Configuration for vector features: dimension, metric, HNSW params (M, ef_construction, ef_search).
+### Vector Database Components (Implemented)
+
+- **`HNSWIndex`** ([hnsw_index.hpp](../src/include/core_engine/vector/hnsw_index.hpp)): Hierarchical Navigable Small World graph for O(log N) approximate nearest neighbor search. Thread-safe with shared_mutex. ✅ COMPLETE
+- **`Vector`** ([vector.hpp](../src/include/core_engine/vector/vector.hpp)): SIMD-optimized distance calculations (Cosine, Euclidean, Dot Product, Manhattan). Float32 aligned for AVX2/AVX-512. ✅ COMPLETE
+- **`DatabaseConfig::vector_*`** ([config.hpp](../src/include/core_engine/common/config.hpp)): Configuration for vector features: dimension, metric, HNSW params (M, ef_construction, ef_search). ✅ COMPLETE
+
+### Security & Monitoring Components (Implemented)
+
+- **`AuthManager`** ([security/auth.hpp](../src/include/core_engine/security/auth.hpp)): User authentication with session management and role-based access control (RBAC).
+- **`AuditLogger`** ([security/audit.hpp](../src/include/core_engine/security/audit.hpp)): Comprehensive audit logging for security events (login, access, operations).
+- **`RateLimiter`** ([rate_limiter.hpp](../src/include/core_engine/rate_limiter.hpp)): Token bucket rate limiting with per-client and per-endpoint configuration.
+- **`MetricsCollector`** ([metrics.hpp](../src/include/core_engine/metrics.hpp)): Prometheus-compatible metrics export (counters, gauges, histograms).
+- **`AppConfig`** ([config/app_config.hpp](../src/include/core_engine/config/app_config.hpp)): Application-level configuration with presets (Development, Production).
 
 ### Data Flow: Write Path (Page-Based)
 
@@ -57,28 +74,55 @@ This is a **C++20 page-oriented vector database engine** designed for production
 ### Build Commands (from `src/` directory)
 
 ```powershell
-# Configure (generates build files in src/build/)
+# Windows: Configure with Visual Studio 2022 generator (multi-config)
 cmake --preset windows-vs2022-x64-debug
 
 # Build all targets (library + apps + tests + benchmarks)
 cmake --build --preset windows-vs2022-x64-debug
 
-# Run tests via CTest (MUST specify -C Debug for multi-config generators)
+# Run tests via CTest (MUST specify -C Debug for multi-config generators like VS)
 ctest --test-dir build/windows-vs2022-x64-debug -C Debug --output-on-failure
 
-# Or use preset
+# Or use test preset (includes -C Debug automatically)
 ctest --preset windows-vs2022-x64-debug --output-on-failure
 
-# Run benchmarks (Year 1 page I/O performance)
+# Run specific test
+.\build\windows-vs2022-x64-debug\Debug\core_engine_tests.exe "[engine]"
+
+# Run benchmarks
 .\build\windows-vs2022-x64-debug\Debug\core_engine_benchmarks.exe --benchmark_filter=Page
 ```
 
+```bash
+# Linux/macOS: Configure with Ninja or Unix Makefiles (single-config)
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCORE_ENGINE_BUILD_TESTS=ON
+
+# Build
+cmake --build build -j
+
+# Run tests (no -C flag needed for single-config generators)
+ctest --test-dir build --output-on-failure
+
+# Run specific test
+./build/core_engine_tests "[engine]"
+
+# Run benchmarks
+./build/core_engine_benchmarks --benchmark_filter=Page
+```
+
+**Key differences**:
+- **Multi-config generators** (Visual Studio, Xcode): Build directory contains multiple configurations (Debug/Release), requires `-C Debug` in ctest
+- **Single-config generators** (Ninja, Unix Makefiles): Build directory is specific to one config, no `-C` flag needed
+- Test executables are in `Debug/` subdirectory on Windows with VS generator, root build dir on Linux
+
 ### Developer Workflows
 
-**Page debugging**: Inspect page layout and checksums:
-```powershell
-.\build\windows-vs2022-x64-debug\Debug\page_inspector.exe .\db_files\pages.db --page-id 42
-# Shows: LSN, pin_count, dirty, checksum status, page type
+**Testing pattern**: All tests use temporary directories with unique suffixes to avoid conflicts:
+```cpp
+const auto suffix = static_cast<std::uint64_t>(
+    std::chrono::high_resolution_clock::now().time_since_epoch().count());
+const auto db_dir = std::filesystem::temp_directory_path() /
+                    ("core_engine_test_db_" + std::to_string(suffix));
 ```
 
 **Vector operations**: Configure via `DatabaseConfig`:
@@ -90,10 +134,7 @@ config.vector_metric = DatabaseConfig::VectorDistanceMetric::kCosine;
 config.hnsw_params.M = 16;                // Graph connectivity
 config.hnsw_params.ef_construction = 200; // Build quality
 config.hnsw_params.ef_search = 50;        // Query quality
-config.buffer_pool_size = 1024;           // 4 MB buffer pool (1024 pages × 4 KB)c::kCosine;
-config.hnsw_params.M = 16;                // Graph connectivity
-config.hnsw_params.ef_construction = 200; // Build quality
-config.hnsw_params.ef_search = 50;        // Query quality
+config.buffer_pool_size = 1024;           // 4 MB buffer pool (1024 pages × 4 KB)
 
 Engine engine;
 engine.Open(config);
@@ -101,7 +142,42 @@ engine.PutVector("doc1", vector::Vector({0.1f, 0.2f, /* ... 128 dims */}));
 auto results = engine.SearchSimilar(query_vec, /*k=*/10);
 ```
 
+**Web API testing**: Tests start embedded HTTP servers in background threads:
+```cpp
+// Server runs in separate thread with Engine instance
+std::thread server_thread([&]() {
+  Engine engine;
+  engine.Open(db_dir);
+  httplib::Server server;
+  server.Post("/api/put", [&](const httplib::Request& req, httplib::Response& res) {
+    /* ... */
+  });
+  server.listen("127.0.0.1", port);
+});
+// Wait for server startup, then use httplib::Client for tests
+std::this_thread::sleep_for(std::chrono::milliseconds(500));
+httplib::Client client("127.0.0.1", port);
+auto res = client.Get("/api/get?key=test");
+```
+
+### Testing Conventions
+
+- **Test framework**: Catch2 v3 with `TEST_CASE` macros
+- **Test discovery**: CMake's `catch_discover_tests()` automatically finds all test cases
+- **Test files**: 
+  - [tests/test_engine.cpp](../tests/test_engine.cpp): Core engine operations, WAL recovery, flush/compaction
+  - [tests/test_advanced_features.cpp](../tests/test_advanced_features.cpp): Batch operations, range scans, rate limiting, metrics
+  - [tests/test_security.cpp](../tests/test_security.cpp): Auth, audit logging, RBAC, sessions
+  - [tests/test_web_api.cpp](../tests/test_web_api.cpp): HTTP API endpoints, error handling, integration
+- **Temporary directories**: Use `std::filesystem::temp_directory_path()` with unique suffixes for isolation
+- **Recovery testing**: Verify WAL replay by writing in one Engine instance, closing it, then reading in another
+- **Flush/compaction testing**: Write enough data (e.g., 5000 × 1 KB values) to trigger 4 MB threshold
+- **Web API tests**: Marked with `[.]` tag, start embedded HTTP servers in background threads with 500ms startup delay
+
 ## Coding Conventions
+
+ - Use C++20 features (concepts, ranges, smart pointers) where appropriate for clarity and safety
+ - Follow LLVM coding style (see [.clang-format](../src/.clang-format))
 
 ### Error Handling
 
@@ -143,7 +219,9 @@ auto results = engine.SearchSimilar(query_vec, /*k=*/10);
 - **Avoid virtual dispatch in hot paths**: Use templates or function pointers
 - **Prefetch during traversal**: `__builtin_prefetch()` for graph/tree navigation
 - **Batch operations**: Group commit for WAL, batch page flushes for I/O efficiency
-- **SIMD intrinsics**: Use AVX2/AVX-512 for vector distance calculation/test_engine.cpp) and related test files
+- **SIMD intrinsics**: Use AVX2/AVX-512 for vector distance calculations (see [vector.hpp](../src/include/core_engine/vector/vector.hpp))
+- **Cache-line alignment**: Page headers are 64 bytes to fit in single cache line
+- **Memory pooling**: Buffer pool pre-allocates frames to avoid dynamic allocation in hot path/test_engine.cpp) and related test files
 - **Temporary directories**: Use `std::filesystem::temp_directory_path()` with unique suffixes
 - **Recovery testing**: Verify WAL replay by writing in one Engine instance, reading in another
 - **Flush/compaction testing**: Write enough data (e.g., 5000 × 1 KB) to trigger thresholds
@@ -199,6 +277,8 @@ Page-based storage doesn't use bloom filters yet. Future enhancements:
 5. **CRC before LSN**: Update page LSN **before** calculating checksum
 6. **Vector dimension mismatch**: All vectors in an index must have identical dimensions (validated at insert time)
 7. **SIMD alignment**: Vectors must be 32-byte aligned for AVX2, 64-byte for AVX-512
+8. **CTest configuration flags**: Multi-config generators (VS) require `-C Debug`, single-config (Ninja) don't
+9. **Test isolation**: Use unique temp directories with timestamp suffixes to avoid conflicts between parallel tests
 
 ## Adding New Features
 
@@ -213,6 +293,12 @@ Page-based storage doesn't use bloom filters yet. Future enhancements:
 ### Adding Tests
 
 Add `TEST_CASE` in appropriate test file ([test_storage.cpp](../tests/test_storage.cpp), [test_vector.cpp](../tests/test_vector.cpp)) using Catch2 macros. Tests auto-discovered via `catch_discover_tests()`.
+
+**Test file guidelines**:
+- Use unique temporary directories: `std::filesystem::temp_directory_path() / ("test_name_" + std::to_string(timestamp))`
+- Web API tests need `[.]` tag and 500ms startup delay for embedded server
+- Recovery tests: write in one `Engine` instance, close it, verify in new instance
+- Flush tests: write 5000+ KBfor 4 MB threshold
 
 ### Adding SIMD-Optimized Functions
 
@@ -229,21 +315,21 @@ Add `TEST_CASE` in appropriate test file ([test_storage.cpp](../tests/test_stora
 - ✅ Aligned I/O, CRC32 validation
 - ✅ Unit tests + benchmarks
 
-### Q2: Buffer Pool Manager 🚧 **NEXT**
-- Thread-safe BufferPoolManager
-- PageTable (page_id → frame index)
-- FreeList management
-- Pin/Unpin/Flush operations
+### Q2: Buffer Pool Manager ✅ **COMPLETE**
+- ✅ Thread-safe BufferPoolManager
+- ✅ PageTable (page_id → frame index)
+- ✅ FreeList management
+- ✅ Pin/Unpin/Flush operations
 
-### Q3: LRU-K Eviction (Planned)
-- LRUKReplacer with K=2
-- Evict pages with maximum backward K-distance
-- Integration with BufferPoolManager
+### Q3: LRU-K Eviction ✅ **COMPLETE**
+- ✅ LRU-K eviction integrated into BufferPoolManager
+- ✅ Evict pages with maximum backward K-distance
+- ✅ Integration with BufferPoolManager
 
-### Q4: Write-Ahead Logging (Planned)
-- LogManager with sequential append
-- Group commit optimization
-- ARIES-style recovery (Analysis, Redo, Undo)
+### Q4: Write-Ahead Logging ✅ **COMPLETE**
+- ✅ LogManager with sequential append
+- ✅ Group commit optimization
+- ✅ ARIES-style recovery (Analysis, Redo, Undo)
 
 ## Performance Characteristics (Year 1 Baseline)
 
@@ -257,11 +343,11 @@ Add `TEST_CASE` in appropriate test file ([test_storage.cpp](../tests/test_stora
 
 ## Five-Year Strategic Roadmap
 
-**Year 1 — Storage Engine Foundations** (Current)
+**Year 1 — Storage Engine Foundations** ✅ **COMPLETE**
 - Q1: ✅ Disk & Page Layer
-- Q2: 🚧 Buffer Pool Manager  
-- Q3: LRU-K Eviction
-- Q4: Write-Ahead Logging
+- Q2: ✅ Buffer Pool Manager  
+- Q3: ✅ LRU-K Eviction
+- Q4: ✅ Write-Ahead Logging
 
 **Year 2 — Advanced Memory & Async I/O**
 - io_uring integration (Linux)
