@@ -1,0 +1,49 @@
+# Docker build context exclusions
+# Exclude Windows/local build artifacts from Docker image
+
+# Build directories
+build/
+src/build/
+_build/
+
+# IDE and editor files
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Documentation (already in repo, no need to copy twice)
+*.md
+
+# Test outputs
+Testing/
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# CMake cache files (platform-specific)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+
+# Windows executables and libs (not needed in Linux container)
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+
+# Temporary files
+*.tmp
+*.temp
+*~
