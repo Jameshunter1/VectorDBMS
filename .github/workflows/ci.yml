@@ -123,12 +123,9 @@ jobs:
       sudo apt-get install -y clang-format-17
 
    - name: Check Code Formatting
-     working-directory: src
      run: |
-      find include lib apps -name '*.cpp' -o -name '*.hpp' | \
+      find src/include src/lib src/apps tests benchmarks -name '*.cpp' -o -name '*.hpp' | \
       xargs clang-format-17 --dry-run --Werror
-      cd ../tests && find . -name '*.cpp' -o -name '*.hpp' | \
-      xargs clang-format-17 --dry-run --Werror || true
 
  # ============================================================================
  # Code Quality - Static Analysis
