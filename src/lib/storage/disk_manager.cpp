@@ -205,7 +205,13 @@ Status DiskManager::WritePage(PageId page_id, const Page* page) {
     return Status::IoError("Failed to write page " + std::to_string(page_id) +
                           " (wrote " + std::to_string(bytes_written) + " bytes)");
   }
-  
+
+  // CRITICAL: Flush to disk immediately on Windows/POSIX
+  // Without this, reads may fail as data is still in buffer
+  if (std::fflush(file_handle_) != 0) {
+    return Status::IoError("Failed to flush page " + std::to_string(page_id) + " to disk");
+  }
+
   ++stats_.total_writes;
   return Status::Ok();
 }
@@ -239,6 +245,12 @@ PageId DiskManager::AllocatePage() {
   
   if (bytes_written != kPageSize) {
     Log(LogLevel::kError, "Failed to allocate page");
+    return kInvalidPageId;
+  }
+
+  // CRITICAL: Flush immediately so allocated page is visible to reads
+  if (std::fflush(file_handle_) != 0) {
+    Log(LogLevel::kError, "Failed to flush allocated page");
     return kInvalidPageId;
   }
 
