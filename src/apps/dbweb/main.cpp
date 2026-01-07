@@ -17,7 +17,7 @@ static const char* kIndexHtml = R"HTML(
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>LSM Database Engine - Enhanced UI</title>
+  <title>Vectis Database Engine - Enhanced UI</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { 
@@ -261,7 +261,7 @@ static const char* kIndexHtml = R"HTML(
   <div class="container">
     <div class="header">
       <div>
-        <h1>🗄️ LSM Database Engine</h1>
+        <h1>🗄️ Vectis Database Engine</h1>
         <p style="opacity: 0.9; font-size: 13px; margin-top: 5px;">Enhanced Management Interface</p>
       </div>
       <div class="header-stats">
@@ -643,7 +643,7 @@ static const char* kIndexHtml = R"HTML(
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `lsmdb-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `vectis-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       log(`✓ Exported ${allEntries.length} entries`, 'success');
     }
@@ -878,19 +878,15 @@ int main(int argc, char** argv) {
     
     std::ostringstream json;
     json << "{"
-         << "\"memtable_size_bytes\":" << stats.memtable_size_bytes << ","
-         << "\"memtable_entry_count\":" << stats.memtable_entry_count << ","
-         << "\"sstable_count\":" << stats.sstable_count << ","
-         << "\"wal_size_bytes\":" << stats.wal_size_bytes << ","
+         << "\"total_pages\":" << stats.total_pages << ","
+         << "\"total_reads\":" << stats.total_reads << ","
+         << "\"total_writes\":" << stats.total_writes << ","
+         << "\"checksum_failures\":" << stats.checksum_failures << ","
          << "\"avg_get_time_us\":" << stats.avg_get_time_us << ","
          << "\"avg_put_time_us\":" << stats.avg_put_time_us << ","
          << "\"total_gets\":" << stats.total_gets << ","
-         << "\"total_puts\":" << stats.total_puts << ","
-         << "\"bloom_checks\":" << stats.bloom_checks << ","
-         << "\"bloom_hits\":" << stats.bloom_hits << ","
-         << "\"bloom_false_positives\":" << stats.bloom_false_positives
-         << "}";
-    
+         << "\"total_puts\":" << stats.total_puts << "}";
+
     res.set_content(json.str(), "application/json");
   });
 

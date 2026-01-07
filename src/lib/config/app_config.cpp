@@ -55,8 +55,8 @@ bool AppConfig::Load(const std::string& config_file) {
       security_.audit_log_path = value;
     } else if (key == "database.data_dir") {
       database_.data_dir = value;
-    } else if (key == "database.memtable_size_limit_mb") {
-      database_.memtable_size_limit_mb = std::stoull(value);
+    } else if (key == "database.buffer_pool_size_mb") {
+      database_.buffer_pool_size_mb = std::stoull(value);
     }
   }
   
@@ -68,9 +68,9 @@ bool AppConfig::Save(const std::string& config_file) const {
   if (!file.is_open()) {
     return false;
   }
-  
-  file << "# LSM Database Engine Configuration\n\n";
-  
+
+  file << "# Vectis Database Engine Configuration\n\n";
+
   file << "# Server Settings\n";
   file << "server.host=" << server_.host << "\n";
   file << "server.port=" << server_.port << "\n";
@@ -84,8 +84,8 @@ bool AppConfig::Save(const std::string& config_file) const {
   
   file << "# Database Settings\n";
   file << "database.data_dir=" << database_.data_dir << "\n";
-  file << "database.memtable_size_limit_mb=" << database_.memtable_size_limit_mb << "\n";
-  
+  file << "database.buffer_pool_size_mb=" << database_.buffer_pool_size_mb << "\n";
+
   return true;
 }
 
@@ -107,8 +107,8 @@ AppConfig AppConfig::Production() {
   config.server_.enable_https = true;
   config.security_.require_authentication = true;
   config.security_.enable_audit_log = true;
-  config.security_.audit_log_path = "/var/log/lsmdb/audit.log";
-  config.database_.data_dir = "/var/lib/lsmdb/data";
+  config.security_.audit_log_path = "/var/log/vectis/audit.log";
+  config.database_.data_dir = "/var/lib/vectis/data";
   return config;
 }
 

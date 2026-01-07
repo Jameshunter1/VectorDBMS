@@ -229,8 +229,8 @@ void test_config_load_save() {
   config.MutableServer().port = 9090;
   config.MutableSecurity().require_authentication = true;
   config.MutableSecurity().session_timeout_minutes = 60;
-  config.MutableDatabase().data_dir = "/var/lib/lsmdb";
-  
+  config.MutableDatabase().data_dir = "/var/lib/vectis";
+
   // Save to file
   bool saved = config.Save("./test_config.txt");
   assert(saved && "Should save config to file");
@@ -244,8 +244,8 @@ void test_config_load_save() {
   assert(config.Server().port == 9090 && "Port should match");
   assert(config.Security().require_authentication == true && "Auth should match");
   assert(config.Security().session_timeout_minutes == 60 && "Timeout should match");
-  assert(config.Database().data_dir == "/var/lib/lsmdb" && "Data dir should match");
-  
+  assert(config.Database().data_dir == "/var/lib/vectis" && "Data dir should match");
+
   std::cout << " PASSED\n";
 }
 

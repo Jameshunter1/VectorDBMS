@@ -21,15 +21,15 @@ struct DatabaseConfig {
   
   /// Root directory for the database (used in embedded mode)
   std::filesystem::path root_dir;
-  
+
   /// Directory for SSTable storage
   /// In embedded mode: same as root_dir
-  /// In production: separate volume (e.g., /var/lib/lsmdb/data or C:\ProgramData\LSMDatabase\data)
+  /// In production: separate volume (e.g., /var/lib/vectis/data or C:\ProgramData\Vectis\data)
   std::filesystem::path data_dir;
-  
+
   /// Directory for write-ahead log
   /// In embedded mode: same as root_dir
-  /// In production: fast disk with write endurance (e.g., /var/lib/lsmdb/wal)
+  /// In production: fast disk with write endurance (e.g., /var/lib/vectis/wal)
   std::filesystem::path wal_dir;
   
   /// Whether to organize SSTables into level subdirectories
@@ -38,14 +38,15 @@ struct DatabaseConfig {
   bool use_level_directories = true;
   
   // ====== Performance Tuning ======
-  
-  /// MemTable flush threshold in bytes (default: 4 MB)
-  std::size_t memtable_flush_threshold_bytes = 4 * 1024 * 1024;
-  
-  /// Block cache size in bytes (future: caching SSTable blocks)
+
+  /// Buffer pool size in pages (Year 1 Q2)
+  /// Default: 1024 pages = 4 MB
+  std::size_t buffer_pool_size = 1024;
+
+  /// Block cache size in bytes (future: caching page blocks)
   std::size_t block_cache_size_bytes = 256 * 1024 * 1024;  // 256 MB
-  
-  /// Number of SSTable files at L0 that trigger compaction
+
+  /// Number of pages at L0 that trigger compaction (future)
   std::size_t l0_compaction_trigger = 4;
   
   // ====== Durability Options ======
@@ -95,13 +96,13 @@ struct DatabaseConfig {
    * Example: DatabaseConfig::Embedded("./my_app_data")
    */
   static DatabaseConfig Embedded(std::filesystem::path db_path);
-  
+
   /**
    * Create production server config with separate volumes
-   * SSTables and WAL on different disks for performance
-   * 
-   * Example (Linux): DatabaseConfig::Production("/var/lib/lsmdb")
-   * Example (Windows): DatabaseConfig::Production("C:\\ProgramData\\LSMDatabase")
+   * Pages and WAL on different disks for performance
+   *
+   * Example (Linux): DatabaseConfig::Production("/var/lib/vectis")
+   * Example (Windows): DatabaseConfig::Production("C:\\ProgramData\\Vectis")
    */
   static DatabaseConfig Production(std::filesystem::path root_path);
   
@@ -110,16 +111,16 @@ struct DatabaseConfig {
    * Uses relative paths in project directory
    */
   static DatabaseConfig Development(std::filesystem::path db_path);
-  
+
   /**
    * Load configuration from YAML/JSON file (future enhancement)
-   * 
+   *
    * Example file structure:
    * storage:
-   *   root_dir: "/var/lib/lsmdb"
+   *   root_dir: "/var/lib/vectis"
    *   use_level_directories: true
    * performance:
-   *   memtable_flush_threshold_mb: 4
+   *   buffer_pool_size: 1024
    *   block_cache_size_mb: 256
    * durability:
    *   wal_sync_mode: "every_write"
@@ -131,9 +132,9 @@ struct DatabaseConfig {
   /// Get the full path for a level directory
   /// Example: GetLevelPath(0) -> "data_dir/level_0"
   std::filesystem::path GetLevelPath(int level) const;
-  
-  /// Get the full path for an SSTable file
-  /// Example: GetSSTablePath(42, 1) -> "data_dir/level_1/sstable_42.sst"
+
+  /// Get the full path for a page data file
+  /// Example: GetSSTablePath(42, 1) -> "data_dir/level_1/page_42.dat"
   std::filesystem::path GetSSTablePath(uint64_t sstable_id, int level) const;
   
   /// Get the full path for the WAL file

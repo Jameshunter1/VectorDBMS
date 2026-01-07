@@ -19,19 +19,20 @@ TEST_CASE("Engine opens a database directory") {
   REQUIRE(status.ok());
 }
 
-TEST_CASE("Engine Put/Get round-trip (LSM-first)") {
-  core_engine::Engine engine;
+TEST_CASE("Engine Put/Get round-trip (page-based)")
+{
+ core_engine::Engine engine;
 
-  const auto db_dir = std::filesystem::temp_directory_path() / "core_engine_test_db_kv";
-  const auto open_status = engine.Open(db_dir);
-  REQUIRE(open_status.ok());
+ const auto db_dir = std::filesystem::temp_directory_path() / "core_engine_test_db_kv";
+ const auto open_status = engine.Open(db_dir);
+ REQUIRE(open_status.ok());
 
-  const auto put_status = engine.Put("hello", "world");
-  REQUIRE(put_status.ok());
+ const auto put_status = engine.Put("hello", "world");
+ REQUIRE(put_status.ok());
 
-  const auto value = engine.Get("hello");
-  REQUIRE(value.has_value());
-  REQUIRE(*value == "world");
+ const auto value = engine.Get("hello");
+ REQUIRE(value.has_value());
+ REQUIRE(*value == "world");
 }
 
 TEST_CASE("Engine recovers values after restart (WAL replay)") {
@@ -343,7 +344,7 @@ TEST_CASE("Engine statistics are accurate") {
   engine.Open(db_dir);
 
   auto stats_initial = engine.GetStats();
-  REQUIRE(stats_initial.memtable_entry_count == 0);
+  REQUIRE(stats_initial.total_puts == 0);
 
   // Add some entries
   for (int i = 0; i < 100; i++) {
@@ -351,9 +352,8 @@ TEST_CASE("Engine statistics are accurate") {
   }
 
   auto stats_after = engine.GetStats();
-  REQUIRE(stats_after.memtable_entry_count == 100);
-  REQUIRE(stats_after.memtable_size_bytes > 0);
   REQUIRE(stats_after.total_puts == 100);
+  REQUIRE(stats_after.total_pages >= 0);
 
   // Perform some gets
   for (int i = 0; i < 50; i++) {

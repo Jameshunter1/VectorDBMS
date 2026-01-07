@@ -1,4 +1,4 @@
-# LSM Database Engine
+# Vectis Page-Based Database Engine
 
 A **production-ready**, **high-performance** key-value database engine using Log-Structured Merge-tree architecture.
 
@@ -103,7 +103,7 @@ ctest --test-dir build
 Modular design with clean separation of concerns:
 
 - **`engine.hpp`** - Main API (Put, Get, Delete, GetStats)
-- **`lsm/`** - LSM-tree implementation (MemTable, SSTables, Compaction)
+- **`storage/`** - Page-based storage (DiskManager, BufferPoolManager)
 - **`storage/`** - Page file management and block cache
 - **`kv/`** - Key-value pair serialization
 - **`common/`** - Status codes, logging, configuration
@@ -153,7 +153,7 @@ ctest -C Debug --output-on-failure
 
 **Run Specific Tests:**
 ```powershell
-.\build\windows-vs2022-x64-debug\tests\Debug\core_engine_tests.exe "[lsm]"
+.\build\windows-vs2022-x64-debug\tests\Debug\core_engine_tests.exe "[page]"
 ```
 
 **Test Coverage:**
@@ -206,7 +206,7 @@ This repo leans into:
 New to C++ or want to understand the database internals better?
 
 - **[WHAT_WE_BUILT.md](../WHAT_WE_BUILT.md)** - Simple explanation of how the database works (non-technical)
-- **[ENHANCED_WEB_UI.md](../ENHANCED_WEB_UI.md)** - Guide to the new web interface features and how to test LSM behavior
+- **[ENHANCED_WEB_UI.md](../ENHANCED_WEB_UI.md)** - Guide to the new web interface features
 - **[CPP_CONCEPTS.md](../CPP_CONCEPTS.md)** - C++ concepts explained for beginners (pointers, references, lambdas, etc.)
 
 The codebase now includes extensive comments explaining C++ concepts as you encounter them, making it perfect for learning both database internals and modern C++!

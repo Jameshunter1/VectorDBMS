@@ -18,7 +18,7 @@ DatabaseConfig DatabaseConfig::Embedded(std::filesystem::path db_path) {
   config.use_level_directories = true;
   
   // Conservative defaults for embedded use
-  config.memtable_flush_threshold_bytes = 4 * 1024 * 1024;  // 4 MB
+  config.buffer_pool_size = 1024;                           // 4 MB (1024 pages × 4 KB)
   config.block_cache_size_bytes = 64 * 1024 * 1024;         // 64 MB (smaller for embedded)
   config.l0_compaction_trigger = 4;
   config.wal_sync_mode = WalSyncMode::kEveryWrite;          // Safety over speed
@@ -39,7 +39,7 @@ DatabaseConfig DatabaseConfig::Production(std::filesystem::path root_path) {
   config.use_level_directories = true;
   
   // Production-grade settings
-  config.memtable_flush_threshold_bytes = 64 * 1024 * 1024; // 64 MB (larger batches)
+  config.buffer_pool_size = 16384;                          // 64 MB (16384 pages × 4 KB)
   config.block_cache_size_bytes = 512 * 1024 * 1024;        // 512 MB
   config.l0_compaction_trigger = 4;
   config.wal_sync_mode = WalSyncMode::kEveryWrite;
@@ -58,7 +58,7 @@ DatabaseConfig DatabaseConfig::Development(std::filesystem::path db_path) {
   config.use_level_directories = true;
   
   // Fast settings for development
-  config.memtable_flush_threshold_bytes = 4 * 1024 * 1024;
+  config.buffer_pool_size = 1024; // 4 MB
   config.block_cache_size_bytes = 128 * 1024 * 1024;
   config.l0_compaction_trigger = 4;
   config.wal_sync_mode = WalSyncMode::kNone;  // Faster, but data loss on crash is acceptable in dev
@@ -77,7 +77,7 @@ DatabaseConfig DatabaseConfig::LoadFromFile(const std::filesystem::path& config_
 
 std::filesystem::path DatabaseConfig::GetLevelPath(int level) const {
   if (!use_level_directories) {
-    // Legacy flat structure: all SSTables in data_dir
+    // Legacy flat structure: all page data in data_dir
     return data_dir;
   }
   
@@ -87,7 +87,7 @@ std::filesystem::path DatabaseConfig::GetLevelPath(int level) const {
 
 std::filesystem::path DatabaseConfig::GetSSTablePath(uint64_t sstable_id, int level) const {
   std::filesystem::path level_dir = GetLevelPath(level);
-  return level_dir / ("sstable_" + std::to_string(sstable_id) + ".sst");
+  return level_dir / ("page_" + std::to_string(sstable_id) + ".dat");
 }
 
 std::filesystem::path DatabaseConfig::GetWalPath() const {
@@ -95,7 +95,7 @@ std::filesystem::path DatabaseConfig::GetWalPath() const {
 }
 
 std::filesystem::path DatabaseConfig::GetManifestPath() const {
-  // Manifest stays in data directory (loaded on startup with SSTables)
+  // Manifest stays in data directory (loaded on startup with pages)
   return data_dir / "MANIFEST";
 }
 

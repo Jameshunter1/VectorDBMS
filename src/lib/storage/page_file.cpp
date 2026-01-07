@@ -35,14 +35,16 @@ Status PageFile::Read(PageId id, Page* out_page) {
     return Status::IoError("Failed to open page file for reading");
   }
 
-  const std::uint64_t offset = id * static_cast<std::uint64_t>(Page::size());
+  // Use the engine's canonical on-disk page size (4 KB) to compute byte offsets.
+  const std::uint64_t offset = id * static_cast<std::uint64_t>(Page::Size());
   in.seekg(static_cast<std::streamoff>(offset));
   if (!in) {
     return Status::NotFound("Page offset is beyond end of file");
   }
 
-  in.read(reinterpret_cast<char*>(out_page->data()), static_cast<std::streamsize>(Page::size()));
-  if (in.gcount() != static_cast<std::streamsize>(Page::size())) {
+  // Read the raw 4 KB page image (header + data) directly into the Page object.
+  in.read(out_page->GetRawPage(), static_cast<std::streamsize>(Page::Size()));
+  if (in.gcount() != static_cast<std::streamsize>(Page::Size())) {
     return Status::NotFound("Page is not fully present");
   }
 
@@ -64,13 +66,15 @@ Status PageFile::Write(PageId id, const Page& page) {
     }
   }
 
-  const std::uint64_t offset = id * static_cast<std::uint64_t>(Page::size());
+  // Use the engine's canonical on-disk page size (4 KB) to compute byte offsets.
+  const std::uint64_t offset = id * static_cast<std::uint64_t>(Page::Size());
   io.seekp(static_cast<std::streamoff>(offset));
   if (!io) {
     return Status::IoError("Failed to seek for write");
   }
 
-  io.write(reinterpret_cast<const char*>(page.data()), static_cast<std::streamsize>(Page::size()));
+  // Write the raw 4 KB page image (header + data) directly from the Page object.
+  io.write(page.GetRawPage(), static_cast<std::streamsize>(Page::Size()));
   if (!io) {
     return Status::IoError("Failed to write page");
   }

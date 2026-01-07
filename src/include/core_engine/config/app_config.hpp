@@ -30,7 +30,7 @@ struct SecurityConfig {
 // Database configuration
 struct DatabaseConfig {
   std::string data_dir{"./_data"};
-  size_t memtable_size_limit_mb{4};
+  size_t buffer_pool_size_mb{4};
   size_t wal_buffer_size_kb{256};
   bool enable_compression{false};
   int compaction_threads{2};

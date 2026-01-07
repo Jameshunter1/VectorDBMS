@@ -40,7 +40,7 @@ Status HNSWIndex::Insert(const std::string& key, const Vector& vec) {
   }
   
   InsertNode(key, vec);
-  return Status::OK();
+  return Status::Ok();
 }
 
 int HNSWIndex::InsertNode(const std::string& key, const Vector& vec) {
@@ -290,8 +290,8 @@ Status HNSWIndex::Remove(const std::string& key) {
   // Mark as deleted (lazy deletion)
   nodes_[it->second].deleted = true;
   key_to_node_.erase(it);
-  
-  return Status::OK();
+
+  return Status::Ok();
 }
 
 // ====== Statistics ======

@@ -54,16 +54,9 @@ target_sources(core_engine
     lib/common/logger.cpp
     lib/catalog/catalog.cpp
     lib/storage/page.cpp
-    lib/storage/page_file.cpp
+    lib/storage/disk_manager.cpp
     lib/transaction/txn.cpp
     lib/execution/executor.cpp
-    lib/lsm/bloom_filter.cpp
-    lib/lsm/level.cpp
-    lib/lsm/manifest.cpp
-    lib/lsm/wal.cpp
-    lib/lsm/memtable.cpp
-    lib/lsm/sstable.cpp
-    lib/lsm/lsm_tree.cpp
     lib/engine.cpp
     lib/security/auth.cpp
     lib/security/audit.cpp

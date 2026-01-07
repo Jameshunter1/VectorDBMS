@@ -269,8 +269,7 @@ void test_metrics_with_engine() {
   std::string prometheus_text = GetGlobalMetrics().GetPrometheusText();
   
   // Verify engine metrics are included
-  assert(prometheus_text.find("core_engine_memtable_size_bytes") != std::string::npos);
-  assert(prometheus_text.find("core_engine_memtable_entry_count") != std::string::npos);
+  assert(prometheus_text.find("core_engine_total_pages") != std::string::npos);
   assert(prometheus_text.find("core_engine_avg_get_latency_microseconds") != std::string::npos);
   
   std::filesystem::remove_all("./test_metrics_db");

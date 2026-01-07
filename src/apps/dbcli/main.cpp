@@ -4,7 +4,7 @@
 // core_engine/apps/dbcli/main.cpp
 //
 // Purpose:
-// - Developer-facing CLI for basic key/value operations against an LSM-first engine.
+// - Developer-facing CLI for basic key/value operations against a page-based engine.
 // - Provides a fast loop to validate storage behavior without a server.
 //
 // Current behavior:
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
       return 1;
     }
 
-    Log(LogLevel::kInfo, "PUT ok (written to wal.log + memtable)");
+    Log(LogLevel::kInfo, "PUT ok (written to pages)");
     Log(LogLevel::kInfo, "Tip: check the file <db_directory>/wal.log size");
   } else if (command == "get") {
     if (argc < 4) {

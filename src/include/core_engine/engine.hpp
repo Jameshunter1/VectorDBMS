@@ -6,21 +6,22 @@
 // - Small, stable façade for embedding the engine.
 // - Keeps subsystems behind one well-known lifecycle entry point.
 //
-// Current state (LSM-first milestone):
-// - Open prepares an LSMTree (directory + wal.log).
-// - Put/Get operate on WAL + MemTable.
+// Current state (Year 1 Q1 - Page & Disk Layer):
+// - Open creates DiskManager for page-level I/O.
+// - Put/Get use page-based storage (Year 1 Q2 will add BufferPoolManager).
 // - Execute is reserved for a future SQL/query layer.
 
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include <core_engine/common/config.hpp>
 #include <core_engine/common/status.hpp>
-#include <core_engine/lsm/lsm_tree.hpp>
-#include <core_engine/vector/vector.hpp>
+#include <core_engine/storage/disk_manager.hpp>
 #include <core_engine/vector/hnsw_index.hpp>
+#include <core_engine/vector/vector.hpp>
 
 namespace core_engine {
 
@@ -48,12 +49,12 @@ class Engine {
   // Opens with explicit configuration (production mode).
   Status Open(const DatabaseConfig& config);
 
-  // LSM-first milestone API.
+  // Year 1 Q1 page-based API.
   //
-  // These methods are deliberately simple and visible:
-  // - Put appends to wal.log and updates the MemTable.
-  // - Get reads from the MemTable (SSTables later).
-  // - Delete marks a key as deleted (writes tombstone).
+  // These methods are deliberately simple:
+  // - Put writes to pages via DiskManager (BufferPoolManager in Q2).
+  // - Get reads from pages via DiskManager.
+  // - Delete removes keys (future: tombstone pages).
   Status Put(std::string key, std::string value);
   std::optional<std::string> Get(std::string key);
   Status Delete(std::string key);
@@ -82,9 +83,9 @@ class Engine {
     Scan(const std::string& start_key, const std::string& end_key, const ScanOptions& options = {});
 
   // ====== Vector Database Operations (v2.0) ======
-  
+
   // Insert or update a vector with associated key.
-  // The vector is stored in the LSM tree and indexed in HNSW for fast similarity search.
+  // The vector is stored via page I/O and indexed in HNSW for fast similarity search.
   Status PutVector(const std::string& key, const vector::Vector& vec);
   
   // Search for k most similar vectors to the query.
@@ -120,16 +121,11 @@ class Engine {
 
   // Get database statistics for monitoring/debugging.
   struct Stats {
-    std::size_t memtable_size_bytes;    // Current MemTable memory usage.
-    std::size_t memtable_entry_count;   // Number of keys in MemTable.
-    std::size_t sstable_count;          // Number of SSTable files on disk.
-    std::uint64_t wal_size_bytes;       // Size of write-ahead log.
-    
-    // Bloom filter statistics
-    std::size_t bloom_checks;           // Total Bloom filter checks.
-    std::size_t bloom_hits;             // Keys Bloom filter rejected (true negatives).
-    std::size_t bloom_false_positives;  // Keys Bloom filter said \"maybe\" but weren't there.
-    
+    std::size_t total_pages;       // Total pages in database file.
+    std::size_t total_reads;       // Total page reads from disk.
+    std::size_t total_writes;      // Total page writes to disk.
+    std::size_t checksum_failures; // Corrupted pages detected.
+
     // Performance metrics (microseconds)
     double avg_get_time_us = 0.0;       // Average Get operation time.
     double avg_put_time_us = 0.0;       // Average Put operation time.
@@ -142,18 +138,18 @@ class Engine {
   std::vector<std::pair<std::string, std::string>> GetAllEntries() const;
 
  private:
-  LsmTree lsm_{};
-  bool is_open_ = false;
-  
-  // Vector database components
-  std::unique_ptr<vector::HNSWIndex> vector_index_;  // HNSW index for similarity search
-  DatabaseConfig config_;  // Store config for vector settings
-  
-  // Performance tracking
-  mutable std::size_t total_gets_ = 0;
-  mutable std::size_t total_puts_ = 0;
-  mutable double total_get_time_us_ = 0.0;
-  mutable double total_put_time_us_ = 0.0;
+   std::unique_ptr<DiskManager> disk_manager_; // Page-level I/O (Year 1 Q1)
+   bool is_open_ = false;
+
+   // Vector database components
+   std::unique_ptr<vector::HNSWIndex> vector_index_; // HNSW index for similarity search
+   DatabaseConfig config_;                           // Store config for vector settings
+
+   // Performance tracking
+   mutable std::size_t total_gets_ = 0;
+   mutable std::size_t total_puts_ = 0;
+   mutable double total_get_time_us_ = 0.0;
+   mutable double total_put_time_us_ = 0.0;
 };
 
 }  // namespace core_engine

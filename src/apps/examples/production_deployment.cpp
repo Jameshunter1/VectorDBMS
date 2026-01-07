@@ -29,37 +29,36 @@ int main() {
         std::cout << "Embedded database structure:\n";
         std::cout << "  my_app_data/\n";
         std::cout << "    wal.log         (write-ahead log)\n";
-        std::cout << "    MANIFEST        (SSTable registry)\n";
-        std::cout <<        "    level_0/        (L0 SSTables)\n";
-        std::cout << "    level_1/        (L1 SSTables)\n\n";
+        std::cout << "    MANIFEST        (Page metadata)\n";
+        std::cout << "    pages.db        (Page file)\n\n";
     }
     
     // Example 2: Production Mode with Separate Disks
     // WAL on fast SSD, data on capacity HDD
     {
         std::cout << "=== Example 2: Production Mode ===\n";
-        
+
         // On Windows:
         // - Fast disk: C:\\ (SSD for WAL)
-        // - Data disk: D:\\ (HDD for SSTables)
+        // - Data disk: D:\\ (HDD for pages)
         //
         // On Linux:
         // - Fast disk: /mnt/nvme (NVMe SSD for WAL)
-        // - Data disk: /mnt/hdd (HDD for SSTables)
-        
-        #ifdef _WIN32
-        auto config = DatabaseConfig::Production("C:\\ProgramData\\LSMDatabase");
+        // - Data disk: /mnt/hdd (HDD for pages)
+
+#ifdef _WIN32
+        auto config = DatabaseConfig::Production("C:\\ProgramData\\Vectis");
         // Override to put WAL on different disk
-        config.wal_dir = "C:\\ProgramData\\LSMDatabase\\wal";  // Fast SSD
-        config.data_dir = "D:\\LSMDatabase\\data";              // Capacity HDD
-        #else
-        auto config = DatabaseConfig::Production("/var/lib/lsmdb");
-        config.wal_dir = "/mnt/nvme/lsmdb/wal";   // Fast NVMe
-        config.data_dir = "/mnt/hdd/lsmdb/data";  // Capacity HDD
-        #endif
-        
+        config.wal_dir = "C:\\ProgramData\\Vectis\\wal"; // Fast SSD
+        config.data_dir = "D:\\Vectis\\data";            // Capacity HDD
+#else
+        auto config = DatabaseConfig::Production("/var/lib/vectis");
+        config.wal_dir = "/mnt/nvme/vectis/wal";  // Fast NVMe
+        config.data_dir = "/mnt/hdd/vectis/data"; // Capacity HDD
+#endif
+
         // Tune for production workload
-        config.memtable_flush_threshold_bytes = 64 * 1024 * 1024;  // 64 MB (larger batches)
+        config.memtable_flush_threshold_bytes = 64 * 1024 * 1024;  // 64 MB (Year 1 Q2: buffer pool)
         config.block_cache_size_bytes = 512 * 1024 * 1024;         // 512 MB cache
         config.wal_sync_mode = DatabaseConfig::WalSyncMode::kEveryWrite;
         
@@ -76,8 +75,8 @@ int main() {
             std::cout << "      wal.log       (sequential writes, needs fsync)\n";
             std::cout << "  Capacity Disk (D:\\ or /mnt/hdd):\n";
             std::cout << "    data/\n";
-            std::cout << "      MANIFEST      (SSTable registry)\n";
-            std::cout << "      level_0/      (fresh SSTables)\n";
+            std::cout << "      MANIFEST      (Page metadata)\n";
+            std::cout << "      pages.db      (Page storage)\n";
             std::cout << "      level_1/      (compacted, non-overlapping)\n";
             std::cout << "      level_2/      (10x larger than L1)\n\n";
         }
@@ -113,9 +112,9 @@ int main() {
     std::cout << "  - Use Production mode\n";
     std::cout << "  - Separate WAL on fast disk (NVMe/SSD)\n";
     std::cout << "  - Data files on capacity disk (HDD acceptable)\n";
-    std::cout << "  - Linux: /var/lib/lsmdb/{wal,data}\n";
-    std::cout << "  - Windows: C:\\ProgramData\\LSMDatabase\\{wal,data}\n\n";
-    
+    std::cout << "  - Linux: /var/lib/vectis/{wal,data}\n";
+    std::cout << "  - Windows: C:\\ProgramData\\Vectis\\{wal,data}\n\n";
+
     std::cout << "Development:\n";
     std::cout << "  - Use Development mode\n";
     std::cout << "  - Disable fsync for speed\n";

@@ -13,13 +13,13 @@ namespace core_engine {
 
 // Map EngineStats to Engine::Stats for compatibility
 struct MetricsCollector::EngineStats {
-  std::size_t memtable_size_bytes;
-  std::size_t memtable_entry_count;
-  std::size_t sstable_count;
-  std::uint64_t wal_size_bytes;
-  std::size_t bloom_checks;
-  std::size_t bloom_hits;
-  std::size_t bloom_false_positives;
+  std::size_t total_pages;
+  std::size_t total_reads;
+  std::size_t total_writes;
+  std::size_t checksum_failures;
+  std::size_t bloom_checks;          // Future feature
+  std::size_t bloom_hits;            // Future feature
+  std::size_t bloom_false_positives; // Future feature
   double avg_get_time_us;
   double avg_put_time_us;
   std::size_t total_gets;
@@ -149,29 +149,24 @@ std::string MetricsCollector::GetPrometheusText() const {
 }
 
 void MetricsCollector::UpdateFromEngineStats(const EngineStats& stats) {
-  // Update gauges
-  SetGauge("core_engine_memtable_size_bytes", static_cast<double>(stats.memtable_size_bytes));
-  SetGauge("core_engine_memtable_entry_count", static_cast<double>(stats.memtable_entry_count));
-  SetGauge("core_engine_sstable_count", static_cast<double>(stats.sstable_count));
-  SetGauge("core_engine_wal_size_bytes", static_cast<double>(stats.wal_size_bytes));
-  
+  // Update gauges for page I/O
+  SetGauge("core_engine_total_pages", static_cast<double>(stats.total_pages));
+  SetGauge("core_engine_total_reads", static_cast<double>(stats.total_reads));
+  SetGauge("core_engine_total_writes", static_cast<double>(stats.total_writes));
+  SetGauge("core_engine_checksum_failures", static_cast<double>(stats.checksum_failures));
+
   // Update counters
   IncrementCounter("core_engine_requests_total", 0);  // Ensure it exists
   IncrementCounter("core_engine_get_operations_total", 0);  // Will be updated by actual ops
   IncrementCounter("core_engine_put_operations_total", 0);
-  
-  // Bloom filter metrics
-  SetGauge("core_engine_bloom_checks_total", static_cast<double>(stats.bloom_checks));
-  SetGauge("core_engine_bloom_hits_total", static_cast<double>(stats.bloom_hits));
-  SetGauge("core_engine_bloom_false_positives_total", static_cast<double>(stats.bloom_false_positives));
-  
+
   // Performance metrics
   SetGauge("core_engine_avg_get_latency_microseconds", stats.avg_get_time_us);
   SetGauge("core_engine_avg_put_latency_microseconds", stats.avg_put_time_us);
   SetGauge("core_engine_total_get_operations", static_cast<double>(stats.total_gets));
   SetGauge("core_engine_total_put_operations", static_cast<double>(stats.total_puts));
-  
-  // Calculate and set Bloom filter effectiveness
+
+  // Future: Bloom filter metrics (Year 2+)
   if (stats.bloom_checks > 0) {
     double effectiveness = static_cast<double>(stats.bloom_hits) / stats.bloom_checks * 100.0;
     SetGauge("core_engine_bloom_effectiveness_percent", effectiveness);
@@ -181,19 +176,17 @@ void MetricsCollector::UpdateFromEngineStats(const EngineStats& stats) {
 // Helper to convert from Engine::Stats to EngineStats
 void UpdateMetricsFromEngine(const Engine& engine) {
   auto stats = engine.GetStats();
-  MetricsCollector::EngineStats es{
-    stats.memtable_size_bytes,
-    stats.memtable_entry_count,
-    stats.sstable_count,
-    stats.wal_size_bytes,
-    stats.bloom_checks,
-    stats.bloom_hits,
-    stats.bloom_false_positives,
-    stats.avg_get_time_us,
-    stats.avg_put_time_us,
-    stats.total_gets,
-    stats.total_puts
-  };
+  MetricsCollector::EngineStats es{stats.total_pages,
+                                   stats.total_reads,
+                                   stats.total_writes,
+                                   stats.checksum_failures,
+                                   0, // Placeholder: bloom_checks removed
+                                   0, // Placeholder: bloom_hits removed
+                                   0, // Placeholder: bloom_false_positives removed
+                                   stats.avg_get_time_us,
+                                   stats.avg_put_time_us,
+                                   stats.total_gets,
+                                   stats.total_puts};
   GetGlobalMetrics().UpdateFromEngineStats(es);
 }
 
@@ -267,16 +260,16 @@ HealthStatus CheckHealth(const Engine& engine) {
   HealthStatus health;
   
   auto stats = engine.GetStats();
-  
-  // Check if database is operational
-  health.database_open = (stats.memtable_entry_count >= 0);  // Simple check
-  health.wal_healthy = true;      // TODO: Add WAL health check
-  health.memtable_healthy = true; // TODO: Add MemTable health check
-  health.sstables_healthy = true; // TODO: Add SSTable health check
-  
-  // Calculate resource usage
-  health.memory_usage_mb = stats.memtable_size_bytes / (1024.0 * 1024.0);
-  health.disk_usage_mb = (stats.wal_size_bytes + stats.sstable_count * 1024 * 1024) / (1024.0 * 1024.0);
+
+  // Check if database is operational (page I/O working)
+  health.database_open = (stats.total_pages >= 0); // Simple check
+  health.wal_healthy = true;                       // TODO: Add WAL health check (Year 1 Q4)
+  health.memtable_healthy = true;                  // Deprecated (page-based architecture)
+  health.sstables_healthy = true;                  // Deprecated (page-based architecture)
+
+  // Calculate resource usage (page-based)
+  health.memory_usage_mb = (stats.total_pages * 4096) / (1024.0 * 1024.0); // Buffer pool size
+  health.disk_usage_mb = (stats.total_pages * 4096) / (1024.0 * 1024.0);   // Total pages on disk
   health.active_connections = 0;  // TODO: Track active connections
   
   // Determine overall status

@@ -34,8 +34,7 @@ jobs:
     - name: Run Benchmarks (Release only)
       if: matrix.build_type == 'Release'
       run: |
-        .\build\windows-msvc-debug\benchmarks\bench_lsm.exe
-        .\build\windows-msvc-debug\benchmarks\bench_advanced.exe
+        .\\build\\windows-msvc-debug\\benchmarks\\core_engine_benchmarks.exe
 
   # ============================================================================
   # Build and Test - Linux (GCC)

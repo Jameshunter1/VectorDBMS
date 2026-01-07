@@ -221,7 +221,7 @@ std::vector<std::string> AuthManager::GetActiveSessions() const {
 std::string AuthManager::HashPassword(const std::string& password) const {
   // In production, use bcrypt or Argon2
   // For demo, using simple hash with static salt
-  return SimpleHash(password, "lsm_database_salt_v1");
+  return SimpleHash(password, "vectis_database_salt_v1");
 }
 
 bool AuthManager::VerifyPassword(const std::string& password,

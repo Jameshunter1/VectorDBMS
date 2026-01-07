@@ -4,7 +4,7 @@
 //
 // Purpose:
 // - Explicit boundary for a future query execution layer.
-// - For an LSM-first roadmap, this stays stubbed until KV correctness and
+// - For a page-based roadmap, this stays stubbed until page layer and
 //   durability (WAL + recovery + SSTables) are solid.
 
 #include <string_view>

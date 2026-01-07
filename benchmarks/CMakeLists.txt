@@ -21,7 +21,6 @@ FetchContent_MakeAvailable(benchmark)
 
 add_executable(core_engine_benchmarks
   bench_page_file.cpp
-  bench_lsm.cpp
   bench_advanced.cpp
 )
 set_target_properties(core_engine_benchmarks PROPERTIES FOLDER "benchmarks")

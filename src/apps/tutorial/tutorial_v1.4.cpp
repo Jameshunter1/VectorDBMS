@@ -232,7 +232,9 @@ void demo_4_metrics_and_monitoring() {
   auto stats = engine.GetStats();
   metrics.IncrementCounter("core_engine_get_requests_total", static_cast<double>(stats.total_gets));
   metrics.IncrementCounter("core_engine_put_requests_total", static_cast<double>(stats.total_puts));
-  metrics.SetGauge("core_engine_memtable_size_bytes", static_cast<double>(stats.memtable_size_bytes));
+  metrics.SetGauge("core_engine_total_pages", static_cast<double>(stats.total_pages));
+  metrics.SetGauge("core_engine_total_reads", static_cast<double>(stats.total_reads));
+  metrics.SetGauge("core_engine_total_writes", static_cast<double>(stats.total_writes));
   metrics.ObserveHistogram("core_engine_get_latency_seconds", stats.avg_get_time_us / 1000000.0);
   metrics.ObserveHistogram("core_engine_put_latency_seconds", stats.avg_put_time_us / 1000000.0);
   std::cout << "Database Statistics:\n";
@@ -243,19 +245,14 @@ void demo_4_metrics_and_monitoring() {
             << stats.avg_get_time_us << " µs\n";
   std::cout << "  Avg PUT latency: " << std::fixed << std::setprecision(2) 
             << stats.avg_put_time_us << " µs\n";
-  std::cout << "  MemTable size: " << stats.memtable_size_bytes << " bytes\n";
-  std::cout << "  MemTable entries: " << stats.memtable_entry_count << "\n";
-  
-  if (stats.bloom_checks > 0) {
-    double effectiveness = static_cast<double>(stats.bloom_hits) / stats.bloom_checks * 100.0;
-    std::cout << "\nBloom Filter Effectiveness:\n";
-    std::cout << "  Checks: " << stats.bloom_checks << "\n";
-    std::cout << "  Hits (avoided disk reads): " << stats.bloom_hits << "\n";
-    std::cout << "  False positives: " << stats.bloom_false_positives << "\n";
-    std::cout << "  Effectiveness: " << std::fixed << std::setprecision(1) 
-              << effectiveness << "%\n";
-  }
-  
+  std::cout << "  Total pages: " << stats.total_pages << "\n";
+  std::cout << "  Page I/O: " << stats.total_reads << " reads, " << stats.total_writes
+            << " writes\n";
+  std::cout << "  Checksum failures: " << stats.checksum_failures << "\n";
+
+  // Bloom filter metrics (Year 2+ feature)
+  std::cout << "\nNote: Bloom filter metrics not yet implemented (Year 2+ feature)\n";
+
   print_section("Prometheus Export Format");
   std::string prometheus_text = metrics.GetPrometheusText();
   std::cout << "Sample of Prometheus metrics (first 800 chars):\n";
@@ -270,7 +267,7 @@ void demo_4_metrics_and_monitoring() {
   
   std::cout << "Then configure Prometheus to scrape:\n";
   std::cout << "  scrape_configs:\n";
-  std::cout << "    - job_name: 'lsm_database'\n";
+  std::cout << "    - job_name: 'vectis_database'\n";
   std::cout << "      scrape_interval: 15s\n";
   std::cout << "      static_configs:\n";
   std::cout << "        - targets: ['localhost:8080']\n";
@@ -348,8 +345,8 @@ void demo_5_real_world_example() {
   std::cout << "  Operations: " << (stats.total_puts + stats.total_gets) << " total\n";
   std::cout << "  Latency: " << std::fixed << std::setprecision(2) 
             << stats.avg_get_time_us << " µs (reads)\n";
-  std::cout << "  Memory: " << (stats.memtable_size_bytes / 1024) << " KB\n";
-  
+  std::cout << "  Memory: " << ((stats.total_pages * 4096) / 1024) << " KB\n";
+
   auto limiter_stats = limiter.GetAllStats();
   for (const auto& [endpoint, stat] : limiter_stats) {
     if (endpoint != "_default" && stat.total_requests > 0) {
@@ -369,13 +366,13 @@ int main() {
   std::cout << R"(
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║      LSM Database Engine v1.4 - Interactive Tutorial        ║
+║      Vectis Database Engine v1.4 - Interactive Tutorial      ║
 ║                                                              ║
 ║      Performance Optimization & Advanced Features           ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
 )";
-  
+
   std::cout << "\nThis tutorial demonstrates 5 powerful new features:\n";
   std::cout << "  1. Batch Operations (8x faster writes)\n";
   std::cout << "  2. Range Queries (time-series, pagination)\n";

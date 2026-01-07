@@ -16,7 +16,7 @@
 ## Components Affected
 <!-- Mark all that apply -->
 - [ ] Vector Database (HNSW Index)
-- [ ] LSM Tree Storage
+- [ ] Page-Based Storage
 - [ ] Engine Core API
 - [ ] Web Interface
 - [ ] Security/Authentication

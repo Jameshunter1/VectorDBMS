@@ -87,7 +87,7 @@ public:
         const auto stats = engine.GetStats();
         std::ostringstream json;
         json << "{"
-             << "\"memtable_size_bytes\":" << stats.memtable_size_bytes << ","
+             << "\"total_pages\":" << stats.total_pages << ","
              << "\"total_puts\":" << stats.total_puts << ","
              << "\"total_gets\":" << stats.total_gets
              << "}";
@@ -224,7 +224,7 @@ TEST_CASE("Web API: STATS", "[web][api][.]") {
 
     // Parse JSON (simple check for expected fields)
     REQUIRE(res->body.find("\"total_puts\":10") != std::string::npos);
-    REQUIRE(res->body.find("\"memtable_size_bytes\"") != std::string::npos);
+    REQUIRE(res->body.find("\"total_pages\"") != std::string::npos);
   }
 
   server.Stop();
