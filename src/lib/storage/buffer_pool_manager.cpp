@@ -238,8 +238,8 @@ Page* BufferPoolManager::NewPage(PageId* page_id) {
   Page* page = &pages_[frame_id];
   page->Reset(new_page_id);
   page->IncrementPinCount();
-  page->MarkDirty();  // New page needs to be written
-  page->SetLSN(0);  // TODO: Get from LogManager in Q4
+  page->MarkDirty();                      // New page needs to be written
+  page->SetLSN(0);                        // TODO: Get from LogManager in Q4
 
   // CRITICAL: Update checksum so page can be read before flush
   // Without this, reading the page before it's flushed causes checksum mismatch
@@ -248,7 +248,7 @@ Page* BufferPoolManager::NewPage(PageId* page_id) {
   // Update page table
   page_table_[new_page_id] = frame_id;
   replacer_->Pin(frame_id);
-  
+
   // Record access for LRU-K
   replacer_->RecordAccess(frame_id);
 
