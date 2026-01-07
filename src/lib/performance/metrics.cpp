@@ -262,7 +262,7 @@ HealthStatus CheckHealth(const Engine& engine) {
   auto stats = engine.GetStats();
 
   // Check if database is operational (page I/O working)
-  health.database_open = (stats.total_pages >= 0); // Simple check
+  health.database_open = true; // Database is open if we can get stats
   health.wal_healthy = true;                       // TODO: Add WAL health check (Year 1 Q4)
   health.memtable_healthy = true;                  // Deprecated (page-based architecture)
   health.sstables_healthy = true;                  // Deprecated (page-based architecture)

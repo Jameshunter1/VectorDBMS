@@ -1,0 +1,53 @@
+# Multi-stage build for Vectis Database
+# Stage 1: Build the C++ application
+FROM mcr.microsoft.com/windows/servercore:ltsc2022 AS builder
+
+# Install Visual Studio Build Tools
+# Note: This is a placeholder - actual VS Build Tools installation required
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Install Chocolatey
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install build tools
+RUN choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \
+    choco install -y visualstudio2022buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet" && \
+    choco install -y git
+
+# Set up build environment
+WORKDIR C:\\build
+COPY . .
+
+# Build the project
+RUN cmake --preset windows-vs2022-x64-release -S src && \
+    cmake --build build/windows-vs2022-x64-release --config Release -j
+
+# Stage 2: Runtime image
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+WORKDIR C:\\vectis
+
+# Copy built executables
+COPY --from=builder C:\\build\\build\\windows-vs2022-x64-release\\Release\\dbweb.exe .
+COPY --from=builder C:\\build\\build\\windows-vs2022-x64-release\\Release\\dbcli.exe .
+COPY --from=builder C:\\build\\build\\windows-vs2022-x64-release\\Release\\core_engine.dll .
+
+# Create data directory
+RUN mkdir C:\\vectis\\data
+
+# Expose HTTP port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD powershell -Command "try { Invoke-WebRequest -Uri 'http://localhost:8080/api/health' -UseBasicParsing | Out-Null; exit 0 } catch { exit 1 }"
+
+# Set environment variables
+ENV VECTIS_DATA_DIR=C:\\vectis\\data
+ENV VECTIS_PORT=8080
+ENV VECTIS_HOST=0.0.0.0
+
+# Run the web server
+CMD ["C:\\vectis\\dbweb.exe", "C:\\vectis\\data", "8080"]

@@ -34,6 +34,14 @@ namespace vector {
 class HNSWIndex;
 }
 
+// ScanOptions: Configuration for range queries (v1.4)
+// Moved outside Engine class to avoid forward reference issues with default parameters
+struct ScanOptions {
+  bool reverse = false;           // Scan in descending order.
+  std::size_t limit = 0;          // Maximum results (0 = unlimited).
+  bool keys_only = false;         // Return keys only (no values).
+};
+
 // Engine is the façade your application would embed.
 //
 // Intent:
@@ -79,11 +87,6 @@ class Engine {
   // Returns all key-value pairs where start_key <= key < end_key.
   // If reverse=true, returns results in descending order.
   // Limit controls maximum number of results (0 = unlimited).
-  struct ScanOptions {
-    bool reverse = false;           // Scan in descending order.
-    std::size_t limit = 0;          // Maximum results (0 = unlimited).
-    bool keys_only = false;         // Return keys only (no values).
-  };
   std::vector<std::pair<std::string, std::string>> 
     Scan(const std::string& start_key, const std::string& end_key, const ScanOptions& options = ScanOptions());
 

@@ -1,5 +1,6 @@
 #include <core_engine/vector/vector.hpp>
 #include <algorithm>
+#include <cstdint>
 #include <numeric>
 #include <sstream>
 
