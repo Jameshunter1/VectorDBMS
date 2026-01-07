@@ -1,5 +1,6 @@
 #include <core_engine/common/logger.hpp>
 #include <core_engine/engine.hpp>
+#include <core_engine/metrics.hpp>
 
 #include <httplib.h>
 
@@ -894,6 +895,33 @@ int main(int argc, char** argv) {
          << "\"total_puts\":" << stats.total_puts << "}";
 
     res.set_content(json.str(), "application/json");
+  });
+
+  // Prometheus metrics endpoint
+  server.Get("/metrics", [&](const httplib::Request&, httplib::Response& res) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+
+    // Update metrics from engine stats
+    const auto stats = engine.GetStats();
+    auto& metrics = core_engine::GetGlobalMetrics();
+
+    // Set gauges for current values
+    metrics.SetGauge("core_engine_total_pages", static_cast<double>(stats.total_pages));
+    metrics.SetGauge("core_engine_total_reads", static_cast<double>(stats.total_reads));
+    metrics.SetGauge("core_engine_total_writes", static_cast<double>(stats.total_writes));
+    metrics.SetGauge("core_engine_checksum_failures", static_cast<double>(stats.checksum_failures));
+    metrics.SetGauge("core_engine_avg_get_latency_microseconds",
+                     static_cast<double>(stats.avg_get_time_us));
+    metrics.SetGauge("core_engine_avg_put_latency_microseconds",
+                     static_cast<double>(stats.avg_put_time_us));
+
+    // Set counters for cumulative totals
+    metrics.SetGauge("core_engine_total_gets", static_cast<double>(stats.total_gets));
+    metrics.SetGauge("core_engine_total_puts", static_cast<double>(stats.total_puts));
+
+    // Get Prometheus text format
+    const std::string prometheus_text = metrics.GetPrometheusText();
+    res.set_content(prometheus_text, "text/plain; version=0.0.4");
   });
 
   server.Get("/api/entries", [&](const httplib::Request&, httplib::Response& res) {
