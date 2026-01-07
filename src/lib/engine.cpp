@@ -196,7 +196,6 @@ Status Engine::Put(std::string key, std::string value) {
   data_offset += key.size();
 
   uint32_t value_size = static_cast<uint32_t>(value.size());
-  std::size_t value_offset = data_offset; // Save for WAL logging
   std::memcpy(data + data_offset, &value_size, sizeof(uint32_t));
   data_offset += sizeof(uint32_t);
 
@@ -503,6 +502,7 @@ Engine::Scan(const std::string& start_key, const std::string& end_key, const Sca
 }
 
 Status Engine::Execute(std::string_view statement) {
+  (void)statement;  // Suppress unused parameter warning
   return Status::Unimplemented("SQL execution not implemented (Year 1 Q1 focuses on page layer)");
 }
 

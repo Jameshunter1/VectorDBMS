@@ -9,6 +9,7 @@
 // v1.4: Advanced Features
 
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>

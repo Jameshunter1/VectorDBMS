@@ -85,7 +85,7 @@ class Engine {
     bool keys_only = false;         // Return keys only (no values).
   };
   std::vector<std::pair<std::string, std::string>> 
-    Scan(const std::string& start_key, const std::string& end_key, const ScanOptions& options = {});
+    Scan(const std::string& start_key, const std::string& end_key, const ScanOptions& options = ScanOptions());
 
   // ====== Vector Database Operations (v2.0) ======
 
