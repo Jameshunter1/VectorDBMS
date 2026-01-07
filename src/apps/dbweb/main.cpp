@@ -1022,9 +1022,9 @@ int main(int argc, char** argv) {
   });
 
   Log(LogLevel::kInfo, "Enhanced web interface running");
-  Log(LogLevel::kInfo, "Open http://127.0.0.1:" + std::to_string(port) + "/");
+  Log(LogLevel::kInfo, "Open http://0.0.0.0:" + std::to_string(port) + "/");
   Log(LogLevel::kInfo, "Database: " + db_dir);
 
-  server.listen("127.0.0.1", port);
+  server.listen("0.0.0.0", port);
   return 0;
 }
