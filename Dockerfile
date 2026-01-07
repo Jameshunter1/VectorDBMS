@@ -35,9 +35,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /vectis
 
-# Copy built executables from Release build
-COPY --from=builder /build/build/Release/dbweb* ./dbweb
-COPY --from=builder /build/build/Release/dbcli* ./dbcli
+# Copy built executables (Ninja puts them directly in build/, not build/Release/)
+COPY --from=builder /build/build/dbweb ./dbweb
+COPY --from=builder /build/build/dbcli ./dbcli
 # Note: core_engine is a static library, not needed at runtime
 
 # Create data directory
