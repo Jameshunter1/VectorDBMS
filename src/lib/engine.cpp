@@ -3,8 +3,9 @@
 // core_engine/engine.cpp
 //
 // Purpose:
-// - Implement the Engine façade for Year 1 Q2 (Buffer Pool Layer).
-// - Key-value storage using BufferPoolManager for cached page I/O.
+// - Implement the Engine façade for Year 1 Q4 (Write-Ahead Logging).
+// - Key-value storage using BufferPoolManager with LRU-K eviction (Q3).
+// - LogManager provides WAL for durability and recovery (Q4).
 // - DiskManager provides persistent storage backend.
 
 #include <core_engine/common/logger.hpp>
@@ -48,11 +49,16 @@ Status Engine::Open(const DatabaseConfig& config) {
     return status;
   }
 
-  // Create BufferPoolManager for page caching (Year 1 Q2)
+  // Create BufferPoolManager for page caching (Year 1 Q3 - LRU-K)
   buffer_pool_manager_ =
       std::make_unique<BufferPoolManager>(config_.buffer_pool_size, disk_manager_.get());
   Log(LogLevel::kInfo, "BufferPoolManager created (pool_size=" +
-                           std::to_string(config_.buffer_pool_size) + " pages)");
+                           std::to_string(config_.buffer_pool_size) + " pages, LRU-K eviction)");
+
+  // Create LogManager for write-ahead logging (Year 1 Q4 - WAL)
+  auto log_file = config_.data_dir / "wal.log";
+  log_manager_ = std::make_unique<LogManager>(log_file.string());
+  Log(LogLevel::kInfo, "LogManager created (log_file=" + log_file.string() + ")");
 
   // Initialize vector index if enabled
   if (config_.enable_vector_index) {
@@ -85,7 +91,7 @@ Status Engine::Open(const DatabaseConfig& config) {
   }
 
   is_open_ = true;
-  Log(LogLevel::kInfo, "Engine opened (Year 1 Q2 - Buffer Pool Layer)");
+  Log(LogLevel::kInfo, "Engine opened (Year 1 Q4 - Write-Ahead Logging + LRU-K Buffer Pool)");
   return Status::Ok();
 }
 
@@ -94,44 +100,68 @@ Status Engine::Put(std::string key, std::string value) {
     return Status::Internal("Engine is not open");
   }
 
-  // Year 1 Q2: Use BufferPoolManager for cached page I/O
-  // Simple implementation: one key-value per page for now
-  // Future Q3: Proper B-tree indexing with multiple KV pairs per page
+  // Year 1 Q4: Write-Ahead Logging + BufferPoolManager
+  // 1. Start transaction and log the update
+  // 2. Write to buffered page
+  // 3. Commit transaction and force log
 
   auto start = std::chrono::high_resolution_clock::now();
+
+  // Allocate transaction ID
+  TxnId txn_id = next_txn_id_++;
+
+  // Log begin transaction
+  LSN begin_lsn = log_manager_->AppendBeginRecord(txn_id);
 
   // Allocate a new page for this key-value pair
   PageId page_id_out;
   auto page = buffer_pool_manager_->NewPage(&page_id_out);
   if (!page) {
+    // Log abort on failure
+    log_manager_->AppendAbortRecord(txn_id, begin_lsn);
+    log_manager_->ForceFlush();
     return Status::Internal("Failed to allocate page from buffer pool");
   }
 
-  // Write key-value to page (simplified format for Q2)
+  // Write key-value to page (simplified format for Q3/Q4)
   // Format: [key_size(4 bytes)][key][value_size(4 bytes)][value]
   char* data = page->GetData();
-  std::size_t offset = 0;
+  std::size_t data_offset = 0;
 
   uint32_t key_size = static_cast<uint32_t>(key.size());
-  std::memcpy(data + offset, &key_size, sizeof(uint32_t));
-  offset += sizeof(uint32_t);
-  std::memcpy(data + offset, key.data(), key.size());
-  offset += key.size();
+  std::memcpy(data + data_offset, &key_size, sizeof(uint32_t));
+  data_offset += sizeof(uint32_t);
+  std::memcpy(data + data_offset, key.data(), key.size());
+  data_offset += key.size();
 
   uint32_t value_size = static_cast<uint32_t>(value.size());
-  std::memcpy(data + offset, &value_size, sizeof(uint32_t));
-  offset += sizeof(uint32_t);
-  std::memcpy(data + offset, value.data(), value.size());
+  std::size_t value_offset = data_offset; // Save for WAL logging
+  std::memcpy(data + data_offset, &value_size, sizeof(uint32_t));
+  data_offset += sizeof(uint32_t);
+
+  std::size_t value_data_start = data_offset;
+  std::memcpy(data + data_offset, value.data(), value.size());
+
+  // Log the update (WAL - write log before modifying page)
+  LSN update_lsn = log_manager_->AppendUpdateRecord(
+      txn_id, begin_lsn, page_id_out, value_data_start, value.size(),
+      nullptr, // No old data (this is an insert)
+      reinterpret_cast<const std::byte*>(value.data()));
 
   // Mark page as dirty and unpin
   buffer_pool_manager_->UnpinPage(page->GetPageId(), true);
+
+  // Log commit and force to disk (durability)
+  LSN commit_lsn = log_manager_->AppendCommitRecord(txn_id, update_lsn);
+  log_manager_->ForceFlush();
 
   auto end = std::chrono::high_resolution_clock::now();
   total_put_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
   ++total_puts_;
 
   Log(LogLevel::kDebug,
-      "Put: " + key + " = " + value + " (page_id=" + std::to_string(page->GetPageId()) + ")");
+      "Put: " + key + " = " + value + " (page_id=" + std::to_string(page->GetPageId()) +
+          ", txn=" + std::to_string(txn_id) + ", lsn=" + std::to_string(commit_lsn) + ")");
   return Status::Ok();
 }
 

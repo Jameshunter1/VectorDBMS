@@ -6,10 +6,11 @@
 // - Small, stable façade for embedding the engine.
 // - Keeps subsystems behind one well-known lifecycle entry point.
 //
-// Current state (Year 1 Q2 - Buffer Pool Layer):
+// Current state (Year 1 Q4 - Write-Ahead Logging):
 // - Open creates DiskManager for page-level I/O.
-// - BufferPoolManager caches pages with LRU eviction.
-// - Put/Get use buffered page storage with pin/unpin semantics.
+// - BufferPoolManager caches pages with LRU-K eviction (Q3).
+// - LogManager provides WAL for durability and recovery (Q4).
+// - Put/Get use buffered page storage with WAL logging.
 // - Execute is reserved for a future SQL/query layer.
 
 #include <filesystem>
@@ -22,6 +23,7 @@
 #include <core_engine/common/status.hpp>
 #include <core_engine/storage/buffer_pool_manager.hpp>
 #include <core_engine/storage/disk_manager.hpp>
+#include <core_engine/storage/log_manager.hpp>
 #include <core_engine/vector/hnsw_index.hpp>
 #include <core_engine/vector/vector.hpp>
 
@@ -141,8 +143,10 @@ class Engine {
 
  private:
    std::unique_ptr<DiskManager> disk_manager_;              // Page-level I/O (Year 1 Q1)
-   std::unique_ptr<BufferPoolManager> buffer_pool_manager_; // Page cache with LRU (Year 1 Q2)
+   std::unique_ptr<BufferPoolManager> buffer_pool_manager_; // Page cache with LRU-K (Year 1 Q3)
+   std::unique_ptr<LogManager> log_manager_;                // Write-Ahead Log (Year 1 Q4)
    bool is_open_ = false;
+   TxnId next_txn_id_ = 1; // Transaction ID counter for WAL
 
    // Vector database components
    std::unique_ptr<vector::HNSWIndex> vector_index_; // HNSW index for similarity search
