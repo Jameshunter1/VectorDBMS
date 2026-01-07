@@ -1,0 +1,854 @@
+// This #include brings in the logger functions we use to print messages.
+// Think of #include like "import" in Python or JavaScript.
+#include <core_engine/common/logger.hpp>
+
+// This brings in our database Engine class - the main way to interact with the database.
+#include <core_engine/engine.hpp>
+
+// core_engine/apps/dbweb/main.cpp
+//
+// Purpose:
+// - A web-based user interface for testing the database engine.
+// - Serves an HTML page you can open in your browser.
+// - Provides HTTP API endpoints that call the engine's Put/Get methods.
+// - Shows real-time statistics about the database state.
+//
+// For C++ learners:
+// - This file is the "main" entry point - where the program starts running.
+// - We use a single-header HTTP library (cpp-httplib) to handle web requests.
+// - A "mutex" is used to ensure only one request accesses the database at a time.
+
+// These are standard C++ library headers:
+#include <mutex>        // For std::mutex - prevents race conditions in multi-threaded code.
+#include <sstream>      // For std::ostringstream - helps build strings piece by piece.
+#include <string>       // For std::string - text data type.
+
+// cpp-httplib is a lightweight HTTP server library (pulled by CMake FetchContent).
+// It lets us respond to HTTP requests without writing complex networking code.
+#include <httplib.h>
+
+// This is the HTML/CSS/JavaScript that gets served when you visit http://localhost:8080/
+// The R"HTML(...)HTML" syntax is a C++11 "raw string literal" - it preserves newlines and quotes.
+static const char* kIndexHtml = R"HTML(
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Database Engine - Test Interface</title>
+  <style>
+    /* CSS styling - makes the page look nice */
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; 
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0 0 10px 0;
+      font-size: 32px;
+    }
+    .header p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    .content {
+      padding: 30px;
+    }
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .section h2 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 20px;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 8px;
+    }
+    .row { 
+      display: flex; 
+      gap: 12px; 
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    input, textarea { 
+      padding: 10px 12px; 
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    input { 
+      flex: 1;
+      min-width: 200px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      resize: vertical;
+    }
+    button { 
+      padding: 10px 20px; 
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+      color: white;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    .btn-info {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .btn-warning {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .stat-card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      margin-top: 5px;
+    }
+    pre { 
+      background: #1e1e1e; 
+      color: #d4d4d4; 
+      padding: 15px; 
+      overflow: auto;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+      max-height: 400px;
+    }
+    .success { color: #38ef7d; }
+    .error { color: #f5576c; }
+    .hint { 
+      color: #666; 
+      font-size: 13px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🗄️ Database Engine Test Interface</h1>
+      <p>LSM-Tree Storage • WAL Recovery • SSTable Compaction</p>
+    </div>
+
+    <div class="content">
+      <!-- Database Statistics Section -->
+      <div class="section">
+        <h2>📊 Database Statistics</h2>
+        <div class="stats-grid" id="stats">
+          <div class="stat-card">
+            <div class="stat-label">MemTable Size</div>
+            <div class="stat-value" id="stat-memtable">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">MemTable Entries</div>
+            <div class="stat-value" id="stat-entries">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">SSTable Files</div>
+            <div class="stat-value" id="stat-sstables">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">WAL Size</div>
+            <div class="stat-value" id="stat-wal">—</div>
+          </div>
+        </div>
+        
+        <!-- Performance Metrics -->
+        <h3 style="margin-top: 20px; margin-bottom: 10px; color: #667eea;">⚡ Operation Performance</h3>
+        <div class="stats-grid">
+          <div class="stat-card" style="border-left-color: #38ef7d;">
+            <div class="stat-label">Avg Get Time</div>
+            <div class="stat-value" id="stat-get-time">—</div>
+          </div>
+          <div class="stat-card" style="border-left-color: #4facfe;">
+            <div class="stat-label">Avg Put Time</div>
+            <div class="stat-value" id="stat-put-time">—</div>
+          </div>
+          <div class="stat-card" style="border-left-color: #667eea;">
+            <div class="stat-label">Total Gets</div>
+            <div class="stat-value" id="stat-total-gets">—</div>
+          </div>
+          <div class="stat-card" style="border-left-color: #764ba2;">
+            <div class="stat-label">Total Puts</div>
+            <div class="stat-value" id="stat-total-puts">—</div>
+          </div>
+        </div>
+        
+        <!-- Bloom Filter Statistics -->
+        <h3 style="margin-top: 20px; margin-bottom: 10px; color: #667eea;">🌸 Bloom Filter Performance</h3>
+        <div class="stats-grid">
+          <div class="stat-card" style="border-left-color: #38ef7d;">
+            <div class="stat-label">Bloom Checks</div>
+            <div class="stat-value" id="stat-bloom-checks">—</div>
+          </div>
+          <div class="stat-card" style="border-left-color: #38ef7d;">
+            <div class="stat-label">Bloom Hits</div>
+            <div class="stat-value" id="stat-bloom-hits">—</div>
+          </div>
+          <div class="stat-card" style="border-left-color: #f5576c;">
+            <div class="stat-label">False Positives</div>
+            <div class="stat-value" id="stat-bloom-fp">—</div>
+          </div>
+          <div class="stat-card" style="border-left-color: #4facfe;">
+            <div class="stat-label">Hit Rate</div>
+            <div class="stat-value" id="stat-bloom-rate">—</div>
+          </div>
+        </div>
+        
+        <div class="row" style="margin-top: 15px;">
+          <button class="btn-info" onclick="refreshStats()">🔄 Refresh Stats</button>
+          <span class="hint">Stats update automatically after operations</span>
+        </div>
+        <p class="hint" style="margin-top: 10px;">
+          💡 <strong>Bloom Filter</strong>: Skips unnecessary SSTable reads. "Hits" = avoided lookups. "False Positives" = wasted lookups.
+        </p>
+      </div>
+
+      <!-- Single Key Operations -->
+      <div class="section">
+        <h2>🔑 Single Key Operations</h2>
+        <div class="row">
+          <input id="key" placeholder="Enter key (e.g., username)" />
+          <input id="value" placeholder="Enter value (e.g., alice)" />
+        </div>
+        <div class="row">
+          <button class="btn-primary" onclick="doPut()">💾 Put (Store)</button>
+          <button class="btn-success" onclick="doGet()">🔍 Get (Retrieve)</button>
+          <button class="btn-warning" onclick="doDelete()">🗑️ Delete (Remove)</button>
+        </div>
+        <p class="hint">💡 Put writes to WAL and MemTable. Get searches MemTable → SSTables. Delete writes a tombstone.</p>
+      </div>
+
+      <!-- Bulk Operations -->
+      <div class="section">
+        <h2>📦 Bulk Operations</h2>
+        <div class="row">
+          <input id="bulk-prefix" placeholder="Key prefix (e.g., user)" value="user" />
+          <input id="bulk-count" type="number" placeholder="Count" value="100" style="max-width: 120px;" />
+          <button class="btn-primary" onclick="doBulkInsert()">⚡ Bulk Insert</button>
+        </div>
+        <p class="hint">💡 Insert multiple keys to trigger MemTable flush (threshold: 4MB) and compaction (4+ SSTables).</p>
+      </div>
+
+      <!-- Batch Operations -->
+      <div class="section">
+        <h2>📝 Batch Put (Multiple Keys)</h2>
+        <textarea id="batch-input" placeholder="Enter one key=value per line, e.g.:&#10;username=alice&#10;email=alice@example.com&#10;age=30"></textarea>
+        <div class="row">
+          <button class="btn-primary" onclick="doBatchPut()">💾 Batch Put</button>
+        </div>
+        <p class="hint">💡 Enter multiple key=value pairs (one per line) to insert several records at once.</p>
+      </div>
+
+      <!-- View All Entries -->
+      <div class="section">
+        <h2>📊 Database Entries</h2>
+        <div class="row">
+          <button class="btn-info" onclick="refreshEntries()">🔄 Refresh Entries</button>
+          <span class="hint" id="entry-count">0 entries</span>
+        </div>
+        <div id="entries-container" style="margin-top: 15px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e7ff; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead style="position: sticky; top: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+              <tr>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e7ff;">#</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e7ff;">Key</th>
+                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e0e7ff;">Value</th>
+              </tr>
+            </thead>
+            <tbody id="entries-tbody">
+              <tr><td colspan="3" style="padding: 20px; text-align: center; color: #9ca3af;">No entries yet. Insert some data to see them here.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint">💡 Shows all entries from MemTable and SSTables (newest values first, tombstones filtered).</p>
+      </div>
+
+      <!-- Output Console -->
+      <div class="section">
+        <h2>📋 Output Console</h2>
+        <div class="row">
+          <button class="btn-warning" onclick="clearOutput()">🗑️ Clear</button>
+        </div>
+        <pre id="out">Ready. Perform an operation to see results.</pre>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // JavaScript code that runs in the browser
+  
+  // Get references to HTML elements
+  const out = document.getElementById('out');
+  const keyEl = document.getElementById('key');
+  const valEl = document.getElementById('value');
+
+  // Helper function to log messages to the output console
+  function log(line, className = '') {
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = className ? `<span class="${className}">` : '';
+    const suffix = className ? '</span>' : '';
+    out.innerHTML += `[${timestamp}] ${prefix}${line}${suffix}\n`;
+    out.scrollTop = out.scrollHeight; // Auto-scroll to bottom
+  }
+
+  // Refresh database statistics
+  async function refreshStats() {
+    try {
+      const res = await fetch('/api/stats');
+      const data = await res.json();
+      
+      document.getElementById('stat-memtable').textContent = formatBytes(data.memtable_size_bytes);
+      document.getElementById('stat-entries').textContent = data.memtable_entry_count.toLocaleString();
+      document.getElementById('stat-sstables').textContent = data.sstable_count;
+      document.getElementById('stat-wal').textContent = formatBytes(data.wal_size_bytes);
+      
+      // Performance metrics
+      document.getElementById('stat-get-time').textContent = formatTime(data.avg_get_time_us);
+      document.getElementById('stat-put-time').textContent = formatTime(data.avg_put_time_us);
+      document.getElementById('stat-total-gets').textContent = data.total_gets.toLocaleString();
+      document.getElementById('stat-total-puts').textContent = data.total_puts.toLocaleString();
+      
+      // Bloom filter statistics
+      document.getElementById('stat-bloom-checks').textContent = data.bloom_checks.toLocaleString();
+      document.getElementById('stat-bloom-hits').textContent = data.bloom_hits.toLocaleString();
+      document.getElementById('stat-bloom-fp').textContent = data.bloom_false_positives.toLocaleString();
+      
+      // Calculate hit rate: percentage of checks that were hits (avoided reads)
+      const hitRate = data.bloom_checks > 0 
+        ? (data.bloom_hits / data.bloom_checks * 100).toFixed(1) + '%'
+        : '0%';
+      document.getElementById('stat-bloom-rate').textContent = hitRate;
+    } catch (e) {
+      log(`Stats error: ${e.message}`, 'error');
+    }
+  }
+
+  // Format bytes to human-readable format
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  // Format time in microseconds to human-readable format
+  function formatTime(microseconds) {
+    if (microseconds === 0) return '0 μs';
+    if (microseconds < 1000) return microseconds.toFixed(2) + ' μs';
+    if (microseconds < 1000000) return (microseconds / 1000).toFixed(2) + ' ms';
+    return (microseconds / 1000000).toFixed(2) + ' s';
+  }
+
+  // Refresh all database entries
+  async function refreshEntries() {
+    try {
+      const res = await fetch('/api/entries');
+      const data = await res.json();
+      
+      const tbody = document.getElementById('entries-tbody');
+      const countEl = document.getElementById('entry-count');
+      
+      if (data.entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="padding: 20px; text-align: center; color: #9ca3af;">No entries yet. Insert some data to see them here.</td></tr>';
+        countEl.textContent = '0 entries';
+        return;
+      }
+      
+      countEl.textContent = data.entries.length.toLocaleString() + ' entries';
+      
+      let html = '';
+      data.entries.forEach((entry, idx) => {
+        const rowStyle = idx % 2 === 0 ? 'background: #f9fafb;' : 'background: white;';
+        html += `<tr style="${rowStyle}">
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${idx + 1}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 500; color: #374151;">${escapeHtml(entry.key)}</td>
+          <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">${escapeHtml(entry.value)}</td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+      
+      log(`Refreshed entries: ${data.entries.length} found`, 'success');
+    } catch (e) {
+      log(`Entries error: ${e.message}`, 'error');
+    }
+  }
+
+  // Escape HTML to prevent XSS
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // PUT operation - stores a key-value pair
+  async function doPut() {
+    const key = keyEl.value.trim();
+    const value = valEl.value.trim();
+    
+    if (!key) {
+      log('Error: Key cannot be empty', 'error');
+      return;
+    }
+
+    const body = new URLSearchParams({ key, value });
+    const res = await fetch('/api/put', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+
+    const text = await res.text();
+    if (res.ok) {
+      log(`✓ PUT "${key}" = "${value}" → ${text}`, 'success');
+    } else {
+      log(`✗ PUT failed (${res.status}): ${text}`, 'error');
+    }
+    
+    await refreshStats();
+  }
+
+  // GET operation - retrieves a value by key
+  async function doGet() {
+    const key = keyEl.value.trim();
+    
+    if (!key) {
+      log('Error: Key cannot be empty', 'error');
+      return;
+    }
+
+    const res = await fetch('/api/get?key=' + encodeURIComponent(key));
+    const text = await res.text();
+    
+    if (res.ok) {
+      log(`✓ GET "${key}" → "${text}"`, 'success');
+    } else if (res.status === 404) {
+      log(`✗ GET "${key}" → NOT FOUND`, 'error');
+    } else {
+      log(`✗ GET failed (${res.status}): ${text}`, 'error');
+    }
+  }
+
+  // DELETE operation - removes a key by writing a tombstone
+  async function doDelete() {
+    const key = keyEl.value.trim();
+    
+    if (!key) {
+      log('Error: Key cannot be empty', 'error');
+      return;
+    }
+
+    const body = new URLSearchParams({ key });
+    const res = await fetch('/api/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+
+    const text = await res.text();
+    if (res.ok) {
+      log(`✓ DELETE "${key}" → tombstone written`, 'success');
+    } else {
+      log(`✗ DELETE failed (${res.status}): ${text}`, 'error');
+    }
+    
+    await refreshStats();
+  }
+
+  // Bulk insert operation - inserts many keys at once
+  async function doBulkInsert() {
+    const prefix = document.getElementById('bulk-prefix').value.trim() || 'key';
+    const count = parseInt(document.getElementById('bulk-count').value) || 100;
+    
+    log(`Starting bulk insert: ${count} keys with prefix "${prefix}"...`);
+    
+    let successCount = 0;
+    const startTime = Date.now();
+    
+    for (let i = 0; i < count; i++) {
+      const key = `${prefix}_${i}`;
+      const value = `value_${i}_${Date.now()}`;
+      
+      const body = new URLSearchParams({ key, value });
+      const res = await fetch('/api/put', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      });
+      
+      if (res.ok) {
+        successCount++;
+        if ((i + 1) % 50 === 0) {
+          log(`  Progress: ${i + 1}/${count} keys inserted...`);
+        }
+      }
+    }
+    
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    log(`✓ Bulk insert complete: ${successCount}/${count} keys in ${duration}s`, 'success');
+    
+    await refreshStats();
+  }
+
+  // Batch put operation - inserts multiple key=value pairs from textarea
+  async function doBatchPut() {
+    const input = document.getElementById('batch-input').value.trim();
+    if (!input) {
+      log('Error: Batch input is empty', 'error');
+      return;
+    }
+
+    const lines = input.split('\n').filter(line => line.trim());
+    log(`Processing ${lines.length} key=value pairs...`);
+    
+    let successCount = 0;
+    
+    for (const line of lines) {
+      const [key, ...valueParts] = line.split('=');
+      const value = valueParts.join('='); // Handle values with '=' in them
+      
+      if (!key || value === undefined) {
+        log(`  ✗ Skipped invalid line: "${line}"`, 'error');
+        continue;
+      }
+
+      const body = new URLSearchParams({ key: key.trim(), value: value.trim() });
+      const res = await fetch('/api/put', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      });
+      
+      if (res.ok) {
+        successCount++;
+        log(`  ✓ PUT "${key.trim()}"`, 'success');
+      } else {
+        log(`  ✗ PUT "${key.trim()}" failed`, 'error');
+      }
+    }
+    
+    log(`Batch complete: ${successCount}/${lines.length} successful`, successCount === lines.length ? 'success' : 'error');
+    
+    await refreshStats();
+  }
+
+  // Clear the output console
+  function clearOutput() {
+    out.textContent = 'Console cleared.\n';
+  }
+
+  // Auto-refresh stats when page loads
+  refreshStats();
+  
+  // Set up auto-refresh every 5 seconds
+  setInterval(refreshStats, 5000);
+</script>
+</body>
+</html>
+)HTML";
+
+// The main() function - where the program starts executing
+// In C++, "int" means this function returns an integer (0 = success, non-zero = error)
+// "argc" = argument count, "argv" = argument values (command-line arguments)
+int main(int argc, char** argv) {
+  // "using" statements let us type "Engine" instead of "core_engine::Engine"
+  // This is like "from core_engine import Engine" in Python
+  using core_engine::Engine;
+  using core_engine::Log;
+  using core_engine::LogLevel;
+
+  // Parse command-line arguments
+  // Usage: dbweb <db_directory> [port]
+  // Example: dbweb ./my_database 8080
+  
+  // This is a "ternary operator" - it's shorthand for an if/else statement
+  // (argc >= 2) ? argv[1] : "./_db" means:
+  // If argc is at least 2, use argv[1], otherwise use "./_db"
+  const std::string db_dir = (argc >= 2) ? argv[1] : "./_db";
+  const int port = (argc >= 3) ? std::stoi(argv[2]) : 8080;  // std::stoi converts string to integer
+
+  // Create an Engine instance
+  // This is like "engine = Engine()" in Python
+  Engine engine;
+  
+  // Try to open the database
+  // "auto" means "figure out the type automatically" - here it's a Status object
+  auto status = engine.Open(db_dir);
+  
+  // Check if opening the database failed
+  if (!status.ok()) {
+    Log(LogLevel::kError, status.ToString());
+    return 1;  // Return 1 to indicate an error occurred
+  }
+
+  // Create a mutex to protect the engine from concurrent access
+  // A mutex is like a lock - only one thread can hold it at a time
+  // This prevents two HTTP requests from modifying the database simultaneously
+  std::mutex engine_mutex;
+
+  // Create an HTTP server
+  // This object will handle incoming web requests
+  httplib::Server server;
+
+  // Register a handler for GET requests to "/" (the home page)
+  // The syntax [&](...) is a "lambda" - an anonymous function
+  // The [&] means "capture all variables by reference"
+  server.Get("/", [&](const httplib::Request&, httplib::Response& res) {
+    // Set the response content to our HTML page
+    res.set_content(kIndexHtml, "text/html; charset=utf-8");
+  });
+
+  // Register a handler for GET requests to "/api/stats"
+  // This endpoint returns database statistics as JSON
+  server.Get("/api/stats", [&](const httplib::Request&, httplib::Response& res) {
+    // Lock the mutex while accessing the engine
+    // std::lock_guard automatically unlocks when it goes out of scope
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    
+    // Get stats from the engine
+    const auto stats = engine.GetStats();
+    
+    // Build a JSON response manually (in a real app, you'd use a JSON library)
+    // std::ostringstream is like a string builder - you can append to it
+    std::ostringstream json;
+    json << "{"
+         << "\"memtable_size_bytes\":" << stats.memtable_size_bytes << ","
+         << "\"memtable_entry_count\":" << stats.memtable_entry_count << ","
+         << "\"sstable_count\":" << stats.sstable_count << ","
+         << "\"wal_size_bytes\":" << stats.wal_size_bytes << ","
+         << "\"avg_get_time_us\":" << stats.avg_get_time_us << ","
+         << "\"avg_put_time_us\":" << stats.avg_put_time_us << ","
+         << "\"total_gets\":" << stats.total_gets << ","
+         << "\"total_puts\":" << stats.total_puts << ","
+         << "\"bloom_checks\":" << stats.bloom_checks << ","
+         << "\"bloom_hits\":" << stats.bloom_hits << ","
+         << "\"bloom_false_positives\":" << stats.bloom_false_positives
+         << "}";
+    
+    // Send the JSON back to the browser
+    res.set_content(json.str(), "application/json");
+  });
+
+  // Register a handler for GET requests to "/api/entries"
+  // This endpoint returns all entries in the database as JSON
+  server.Get("/api/entries", [&](const httplib::Request&, httplib::Response& res) {
+    // Lock the mutex while accessing the engine
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    
+    // Get all entries from the engine
+    // GetAllEntries() returns a vector of pairs: vector<pair<string, string>>
+    const auto entries = engine.GetAllEntries();
+    
+    // Build a JSON array of entries
+    // Format: {"entries": [{"key":"k1","value":"v1"}, {"key":"k2","value":"v2"}]}
+    std::ostringstream json;
+    json << "{\"entries\":[";
+    
+    // Loop through each entry and add it to the JSON
+    bool first = true;
+    for (const auto& [key, value] : entries) {
+      if (!first) json << ",";
+      first = false;
+      
+      // Escape special characters in JSON strings
+      // This is a simple implementation - a real app would use a JSON library
+      auto escape_json = [](const std::string& s) -> std::string {
+        std::string result;
+        for (char c : s) {
+          switch (c) {
+            case '"': result += "\\\""; break;
+            case '\\': result += "\\\\"; break;
+            case '\n': result += "\\n"; break;
+            case '\r': result += "\\r"; break;
+            case '\t': result += "\\t"; break;
+            default: result += c;
+          }
+        }
+        return result;
+      };
+      
+      json << "{\"key\":\"" << escape_json(key) << "\","
+           << "\"value\":\"" << escape_json(value) << "\"}";
+    }
+    
+    json << "]}";
+    
+    // Send the JSON back to the browser
+    res.set_content(json.str(), "application/json");
+  });
+    
+    // Send the JSON back to the browser
+    res.set_content(json.str(), "application/json");
+  });
+
+  // Register a handler for POST requests to "/api/put"
+  // This endpoint stores a key-value pair in the database
+  server.Post("/api/put", [&](const httplib::Request& req, httplib::Response& res) {
+    // Check if the request has the required parameters
+    // has_param() returns true if the parameter exists
+    if (!req.has_param("key") || !req.has_param("value")) {
+      res.status = 400;  // 400 = Bad Request (client error)
+      res.set_content("Missing 'key' or 'value' parameter", "text/plain");
+      return;  // Exit early if parameters are missing
+    }
+
+    // Extract the key and value from the request
+    // get_param_value() returns a std::string
+    const auto key = req.get_param_value("key");
+    const auto value = req.get_param_value("value");
+
+    // Lock the mutex and perform the Put operation
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto put_status = engine.Put(key, value);
+    
+    // Check if the Put operation failed
+    if (!put_status.ok()) {
+      res.status = 500;  // 500 = Internal Server Error
+      res.set_content(put_status.ToString(), "text/plain");
+      return;
+    }
+
+    // Success! Send a confirmation message
+    res.set_content("OK (written to WAL + MemTable, may trigger flush/compaction)", "text/plain");
+  });
+
+  // Register a handler for GET requests to "/api/get"
+  // This endpoint retrieves a value by key from the database
+  server.Get("/api/get", [&](const httplib::Request& req, httplib::Response& res) {
+    // Check if the key parameter exists
+    if (!req.has_param("key")) {
+      res.status = 400;  // Bad Request
+      res.set_content("Missing 'key' parameter", "text/plain");
+      return;
+    }
+
+    // Extract the key from the request
+    const auto key = req.get_param_value("key");
+
+    // Lock the mutex and perform the Get operation
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto value = engine.Get(key);
+
+    // Check if the key was not found
+    // std::optional<T> is a container that either holds a value or is empty
+    // has_value() returns true if it contains a value
+    if (!value.has_value()) {
+      res.status = 404;  // 404 = Not Found
+      res.set_content("NOT_FOUND", "text/plain");
+      return;
+    }
+
+    // Success! Return the value
+    // The * operator extracts the value from the optional
+    res.set_content(*value, "text/plain");
+  });
+
+  // Register a handler for POST requests to "/api/delete"
+  // This endpoint deletes a key by writing a tombstone marker
+  server.Post("/api/delete", [&](const httplib::Request& req, httplib::Response& res) {
+    /**
+     * DELETE ENDPOINT
+     * 
+     * Deletes work by writing a "tombstone" - a special marker that says
+     * "this key is deleted". The tombstone is written to the WAL and MemTable,
+     * making the key immediately invisible to Get() operations.
+     * 
+     * Physical removal happens later during compaction.
+     */
+    
+    // Check if the key parameter exists
+    if (!req.has_param("key")) {
+      res.status = 400;  // Bad Request
+      res.set_content("Missing 'key' parameter", "text/plain");
+      return;
+    }
+
+    // Extract the key from the request
+    const auto key = req.get_param_value("key");
+
+    // Lock the mutex and perform the Delete operation
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto delete_status = engine.Delete(key);
+    
+    // Check if the Delete operation failed
+    if (!delete_status.ok()) {
+      res.status = 500;  // Internal Server Error
+      res.set_content(delete_status.ToString(), "text/plain");
+      return;
+    }
+
+    // Success! Send a confirmation message
+    res.set_content("OK (tombstone written to WAL + MemTable)", "text/plain");
+  });
+
+  // Print startup messages to the console
+  Log(LogLevel::kInfo, "dbweb running");
+  Log(LogLevel::kInfo, std::string("Open http://127.0.0.1:") + std::to_string(port) + "/");
+  Log(LogLevel::kInfo, std::string("DB dir: ") + db_dir);
+  Log(LogLevel::kInfo, "(Operations write to WAL, trigger flushes/compaction automatically)");
+
+  // Start the HTTP server and listen for requests
+  // This call blocks (doesn't return) until the server is stopped
+  server.listen("127.0.0.1", port);
+  
+  // Return 0 to indicate successful execution
+  return 0;
+}

@@ -1,0 +1,25 @@
+{
+ "folders": [
+  {
+   "name": "CORE-ENGINE",
+   "path": "./src"
+  },
+  {
+   "name": "TEST-SUITE",
+   "path": "./tests"
+  },
+  {
+   "name": "BENCHMARKS",
+   "path": "./benchmarks"
+  }
+ ],
+ "settings": {
+  "cmake.configureOnOpen": true,
+  "editor.formatOnSave": true,
+  "C_Cpp.default.cppStandard": "c++20",
+  "files.exclude": {
+   "**/build/**": true,
+   "**/.git/**": true
+  }
+ }
+}

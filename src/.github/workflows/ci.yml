@@ -1,0 +1,163 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  # ============================================================================
+  # Build and Test - Windows (MSVC)
+  # ============================================================================
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure CMake
+      run: |
+        cmake --preset windows-msvc-debug
+    
+    - name: Build
+      run: |
+        cmake --build --preset debug
+    
+    - name: Run Tests
+      run: |
+        ctest --preset debug --output-on-failure
+    
+    - name: Run Benchmarks (Release only)
+      if: matrix.build_type == 'Release'
+      run: |
+        .\build\windows-msvc-debug\benchmarks\bench_lsm.exe
+        .\build\windows-msvc-debug\benchmarks\bench_advanced.exe
+
+  # ============================================================================
+  # Build and Test - Linux (GCC)
+  # ============================================================================
+  build-linux-gcc:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build g++-13
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -G Ninja
+    
+    - name: Build
+      run: |
+        cmake --build build
+    
+    - name: Run Tests
+      run: |
+        ctest --test-dir build --output-on-failure
+    
+    - name: Run Vector Tests
+      run: |
+        ./build/test_vector_engine
+
+  # ============================================================================
+  # Build and Test - Linux (Clang)
+  # ============================================================================
+  build-linux-clang:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [Debug, Release]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build clang-17
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DCMAKE_CXX_COMPILER=clang++-17 -G Ninja \
+              -DCORE_ENGINE_ENABLE_SANITIZERS=ON
+    
+    - name: Build
+      run: |
+        cmake --build build
+    
+    - name: Run Tests with Sanitizers
+      run: |
+        ctest --test-dir build --output-on-failure
+
+  # ============================================================================
+  # Code Quality - Format Check
+  # ============================================================================
+  format-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format-17
+    
+    - name: Check Code Formatting
+      run: |
+        find include lib apps tests -name '*.cpp' -o -name '*.hpp' | \
+        xargs clang-format-17 --dry-run --Werror
+
+  # ============================================================================
+  # Code Quality - Static Analysis
+  # ============================================================================
+  static-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install cppcheck
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cppcheck
+    
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --suppress=missingIncludeSystem \
+                 --error-exitcode=1 \
+                 -I include lib/ apps/
+
+  # ============================================================================
+  # Security - Dependency Scan
+  # ============================================================================
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'

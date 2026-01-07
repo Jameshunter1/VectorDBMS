@@ -1,0 +1,31 @@
+# Build outputs
+build/
+cmake-build-*/
+
+# IDE / editor
+.vs/
+.vscode/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Compilers
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.lib
+*.dll
+*.exe
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+*_prefix/
+
+# Catch2 / Benchmark fetch content (if used)
+_testing/

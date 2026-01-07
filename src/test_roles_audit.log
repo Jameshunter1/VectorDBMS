@@ -1,0 +1,8 @@
+[2026-01-05 22:11:24] PUT OK User:admin IP: PUT key: config_key
+[2026-01-05 22:11:24] PUT OK User:basicuser IP: PUT key: user_key
+[2026-01-05 22:11:24] GET OK User:guest IP: GET key: config_key
+[2026-01-05 22:11:24] UNAUTHORIZED FAIL User:guest IP:127.0.0.1 Unauthorized: Attempted write without permission
+[2026-01-05 22:13:55] PUT OK User:admin IP: PUT key: config_key
+[2026-01-05 22:13:55] PUT OK User:basicuser IP: PUT key: user_key
+[2026-01-05 22:13:55] GET OK User:guest IP: GET key: config_key
+[2026-01-05 22:13:55] UNAUTHORIZED FAIL User:guest IP:127.0.0.1 Unauthorized: Attempted write without permission

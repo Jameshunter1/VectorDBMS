@@ -1,0 +1,12 @@
+[2026-01-05 22:03:13] LOGIN OK User:alice IP:127.0.0.1 User logged in
+[2026-01-05 22:03:13] PUT OK User:alice IP: PUT key: key1
+[2026-01-05 22:03:13] GET OK User:bob IP: GET key: key2
+[2026-01-05 22:03:13] DELETE OK User:admin IP: DELETE key: key3
+[2026-01-05 22:03:13] LOGIN_FAILED FAIL User:hacker IP:203.0.113.0 Login failed
+[2026-01-05 22:03:13] UNAUTHORIZED FAIL User:anonymous IP:203.0.113.1 Unauthorized: DELETE /api/admin
+[2026-01-05 22:13:53] LOGIN OK User:alice IP:127.0.0.1 User logged in
+[2026-01-05 22:13:53] PUT OK User:alice IP: PUT key: key1
+[2026-01-05 22:13:53] GET OK User:bob IP: GET key: key2
+[2026-01-05 22:13:53] DELETE OK User:admin IP: DELETE key: key3
+[2026-01-05 22:13:53] LOGIN_FAILED FAIL User:hacker IP:203.0.113.0 Login failed
+[2026-01-05 22:13:53] UNAUTHORIZED FAIL User:anonymous IP:203.0.113.1 Unauthorized: DELETE /api/admin

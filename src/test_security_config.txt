@@ -1,0 +1,16 @@
+# LSM Database Engine Configuration
+
+# Server Settings
+server.host=127.0.0.1
+server.port=8080
+server.enable_https=false
+
+# Security Settings
+security.require_authentication=true
+security.session_timeout_minutes=15
+security.enable_audit_log=true
+security.audit_log_path=./test_config_audit.log
+
+# Database Settings
+database.data_dir=./_data
+database.memtable_size_limit_mb=4
