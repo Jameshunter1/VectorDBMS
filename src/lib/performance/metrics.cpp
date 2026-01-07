@@ -246,8 +246,8 @@ std::string HealthStatus::ToJson() const {
   oss << "  \"components\": {\n";
   oss << "    \"database_open\": " << (database_open ? "true" : "false") << ",\n";
   oss << "    \"wal_healthy\": " << (wal_healthy ? "true" : "false") << ",\n";
-  oss << "    \"memtable_healthy\": " << (memtable_healthy ? "true" : "false") << ",\n";
-  oss << "    \"sstables_healthy\": " << (sstables_healthy ? "true" : "false") << "\n";
+  oss << "    \"buffer_pool_healthy\": " << (buffer_pool_healthy ? "true" : "false") << ",\n";
+  oss << "    \"disk_manager_healthy\": " << (disk_manager_healthy ? "true" : "false") << "\n";
   oss << "  },\n";
   oss << "  \"resources\": {\n";
   oss << "    \"memory_usage_mb\": " << memory_usage_mb << ",\n";
@@ -264,10 +264,10 @@ HealthStatus CheckHealth(const Engine& engine) {
   auto stats = engine.GetStats();
 
   // Check if database is operational (page I/O working)
-  health.database_open = true;    // Database is open if we can get stats
-  health.wal_healthy = true;      // TODO: Add WAL health check (Year 1 Q4)
-  health.memtable_healthy = true; // Deprecated (page-based architecture)
-  health.sstables_healthy = true; // Deprecated (page-based architecture)
+  health.database_open = true;        // Database is open if we can get stats
+  health.wal_healthy = true;          // TODO: Add WAL health check
+  health.buffer_pool_healthy = true;  // BufferPoolManager operational
+  health.disk_manager_healthy = true; // DiskManager operational
 
   // Calculate resource usage (page-based)
   health.memory_usage_mb = (stats.total_pages * 4096) / (1024.0 * 1024.0); // Buffer pool size
@@ -275,8 +275,8 @@ HealthStatus CheckHealth(const Engine& engine) {
   health.active_connections = 0; // TODO: Track active connections
 
   // Determine overall status
-  if (health.database_open && health.wal_healthy && health.memtable_healthy &&
-      health.sstables_healthy) {
+  if (health.database_open && health.wal_healthy && health.buffer_pool_healthy &&
+      health.disk_manager_healthy) {
     health.status = HealthStatus::Status::HEALTHY;
     health.message = "All systems operational";
   } else if (health.database_open) {

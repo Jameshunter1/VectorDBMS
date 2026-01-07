@@ -34,7 +34,7 @@ class Engine;
  *
  * Example Prometheus query:
  *   rate(core_engine_requests_total[5m])  # Requests per second
- *   core_engine_memtable_size_bytes       # Current MemTable size
+ *   core_engine_buffer_pool_pages         # Current BufferPool size
  *   histogram_quantile(0.95, core_engine_get_latency_seconds_bucket)  # P95 latency
  *
  * Integration:
@@ -168,8 +168,8 @@ struct HealthStatus {
   // Component health
   bool database_open = false;
   bool wal_healthy = false;
-  bool memtable_healthy = false;
-  bool sstables_healthy = false;
+  bool buffer_pool_healthy = false;
+  bool disk_manager_healthy = false;
 
   // Resource utilization
   double memory_usage_mb = 0.0;
