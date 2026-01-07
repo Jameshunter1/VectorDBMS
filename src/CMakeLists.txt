@@ -54,6 +54,7 @@ target_sources(core_engine
     lib/common/logger.cpp
     lib/catalog/catalog.cpp
     lib/storage/page.cpp
+    lib/storage/page_file.cpp
     lib/storage/disk_manager.cpp
     lib/storage/buffer_pool_manager.cpp
     lib/storage/log_manager.cpp
