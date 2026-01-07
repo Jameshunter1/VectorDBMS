@@ -150,7 +150,7 @@ static void BM_RangeScan_WithLimit(benchmark::State& state) {
     engine.Put(key, "value_" + std::to_string(i));
   }
   
-  core_engine::Engine::ScanOptions options;
+  core_engine::ScanOptions options;
   options.limit = state.range(0);
   
   for (auto _ : state) {
@@ -176,7 +176,7 @@ static void BM_RangeScan_KeysOnly(benchmark::State& state) {
     engine.Put(key, std::string(100, 'x'));  // 100-byte values
   }
   
-  core_engine::Engine::ScanOptions options;
+  core_engine::ScanOptions options;
   options.keys_only = true;
   options.limit = 1000;
   

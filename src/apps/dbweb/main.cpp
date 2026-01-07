@@ -11,7 +11,8 @@
 namespace fs = std::filesystem;
 
 // Enhanced web interface with advanced features
-static const char* kIndexHtml = R"HTML(
+// Split into two parts to avoid MSVC 64KB string literal limit
+static const char* kIndexHtml_Part1 = R"HTML(
 <!doctype html>
 <html lang="en">
 <head>
@@ -423,7 +424,9 @@ static const char* kIndexHtml = R"HTML(
         <div id="level-stats"></div>
       </div>
     </div>
-    
+)HTML";
+
+static const char* kIndexHtml_Part2 = R"HTML(    
     <div id="tab-files" class="tab-content">
       <div class="card">
         <h3>Database Files</h3>
@@ -848,6 +851,9 @@ static const char* kIndexHtml = R"HTML(
 </body>
 </html>
 )HTML";
+
+// Combine the two parts
+static const std::string kIndexHtml = std::string(kIndexHtml_Part1) + std::string(kIndexHtml_Part2);
 
 int main(int argc, char** argv) {
   using core_engine::Engine;

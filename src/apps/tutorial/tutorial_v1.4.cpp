@@ -100,7 +100,7 @@ void demo_2_range_queries() {
   }
   
   print_section("Example 2: Pagination (first 10 results only)");
-  Engine::ScanOptions options;
+  core_engine::ScanOptions options;
   options.limit = 10;
   results = engine.Scan("sensor_2026-01-05_12:", "sensor_2026-01-05_99:", options);
   std::cout << "  Returned exactly " << results.size() << " results (limited)\n";
@@ -324,7 +324,7 @@ void demo_5_real_world_example() {
   
   print_section("Step 2: Query Last 100 Events (Range Scan)");
   if (limiter.AllowRequest("/api/query", "dashboard_user")) {
-    Engine::ScanOptions options;
+    core_engine::ScanOptions options;
     options.limit = 100;
     options.reverse = true;  // Most recent first
     

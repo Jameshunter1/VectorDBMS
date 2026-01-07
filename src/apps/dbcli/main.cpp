@@ -217,7 +217,7 @@ void InteractiveMode(core_engine::Engine& engine, const std::string& db_path) {
     } else if (cmd == "scan" && args.size() >= 3) {
       std::string start = args[1];
       std::string end = args[2];
-      core_engine::Engine::ScanOptions opts;
+      core_engine::ScanOptions opts;
 
       if (args.size() >= 4) {
         opts.limit = std::stoi(args[3]);
