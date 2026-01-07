@@ -106,6 +106,68 @@ Status Engine::Open(const DatabaseConfig& config) {
         "Vector index initialized (dimension=" + std::to_string(config_.vector_dimension) + ")");
   }
 
+  // Rebuild in-memory key-to-page index by scanning all existing pages
+  // This is necessary after restart to restore O(1) key lookup performance
+  Log(LogLevel::kDebug, "Rebuilding key index...");
+  PageId num_pages = disk_manager_->GetNumPages();
+  std::size_t keys_indexed = 0;
+
+  for (PageId page_id = 1; page_id <= num_pages; ++page_id) {
+    auto page = buffer_pool_manager_->FetchPage(page_id);
+    if (!page) {
+      Log(LogLevel::kWarn,
+          "Failed to fetch page " + std::to_string(page_id) + " during index rebuild");
+      continue;
+    }
+
+    // Parse key from page
+    const char* data = page->GetData();
+    std::size_t offset = 0;
+
+    // Read key_size
+    if (offset + sizeof(uint32_t) > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    uint32_t key_size;
+    std::memcpy(&key_size, data + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    // Read key
+    if (key_size == 0 || offset + key_size > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    std::string stored_key(data + offset, key_size);
+    offset += key_size;
+
+    // Read value_size to check for tombstone
+    if (offset + sizeof(uint32_t) > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    uint32_t value_size;
+    std::memcpy(&value_size, data + offset, sizeof(uint32_t));
+
+    // Skip tombstones (deleted entries)
+    if (value_size == UINT32_MAX) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    // Add to index
+    key_to_page_[stored_key] = page_id;
+    keys_indexed++;
+
+    buffer_pool_manager_->UnpinPage(page_id, false);
+  }
+
+  Log(LogLevel::kInfo, "Index rebuilt: " + std::to_string(keys_indexed) + " keys indexed from " +
+                           std::to_string(num_pages) + " pages");
+
   is_open_ = true;
   Log(LogLevel::kInfo, "Engine opened (Year 1 Q4 - Write-Ahead Logging + LRU-K Buffer Pool)");
   return Status::Ok();
@@ -138,30 +200,11 @@ Status Engine::Put(std::string key, std::string value) {
     begin_lsn = log_manager_->AppendBeginRecord(txn_id);
   }
 
-  // First, check if key already exists and reuse that page
+  // Check in-memory index if key already exists (O(1) vs O(N) linear scan)
   PageId existing_page_id = 0;
-  for (PageId pid = 1; pid <= disk_manager_->GetNumPages(); ++pid) {
-    auto check_page = buffer_pool_manager_->FetchPage(pid);
-    if (!check_page)
-      continue;
-
-    const char* data = check_page->GetData();
-    std::size_t offset = 0;
-    if (offset + sizeof(uint32_t) <= kPageSize) {
-      uint32_t stored_key_size;
-      std::memcpy(&stored_key_size, data + offset, sizeof(uint32_t));
-      offset += sizeof(uint32_t);
-
-      if (offset + stored_key_size <= kPageSize) {
-        std::string stored_key(data + offset, stored_key_size);
-        if (stored_key == key) {
-          existing_page_id = pid;
-          buffer_pool_manager_->UnpinPage(pid, false);
-          break;
-        }
-      }
-    }
-    buffer_pool_manager_->UnpinPage(pid, false);
+  auto it = key_to_page_.find(key);
+  if (it != key_to_page_.end()) {
+    existing_page_id = it->second;
   }
 
   // Allocate or reuse page
@@ -208,6 +251,9 @@ Status Engine::Put(std::string key, std::string value) {
       nullptr, // No old data (this is an insert)
       reinterpret_cast<const std::byte*>(value.data()));
 
+  // Update in-memory index
+  key_to_page_[key] = page_id_out;
+
   // Mark page as dirty and unpin
   buffer_pool_manager_->UnpinPage(page->GetPageId(), true);
 
@@ -243,84 +289,77 @@ std::optional<std::string> Engine::Get(std::string key) {
 
   auto start = std::chrono::high_resolution_clock::now();
 
-  // Scan through all pages looking for the key
-  // Page 0 is reserved, start from page 1
-  std::size_t num_pages = disk_manager_->GetNumPages();
-  for (PageId page_id = 1; page_id <= num_pages; ++page_id) {
-    auto page = buffer_pool_manager_->FetchPage(page_id);
-    if (!page) {
-      continue; // Page not available, skip
-    }
-
-    // Parse key-value from page
-    const char* data = page->GetData();
-    std::size_t offset = 0;
-
-    if (offset + sizeof(uint32_t) > kPageSize) {
-      buffer_pool_manager_->UnpinPage(page_id, false);
-      continue;
-    }
-
-    uint32_t key_size;
-    std::memcpy(&key_size, data + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-
-    if (offset + key_size > kPageSize) {
-      buffer_pool_manager_->UnpinPage(page_id, false);
-      continue;
-    }
-
-    std::string stored_key(data + offset, key_size);
-    offset += key_size;
-
-    if (stored_key == key) {
-      // Found the key, check if it's deleted (tombstone)
-      if (offset + sizeof(uint32_t) > kPageSize) {
-        buffer_pool_manager_->UnpinPage(page_id, false);
-        break;
-      }
-
-      uint32_t value_size;
-      std::memcpy(&value_size, data + offset, sizeof(uint32_t));
-
-      // Check for tombstone marker
-      if (value_size == UINT32_MAX) {
-        buffer_pool_manager_->UnpinPage(page_id, false);
-        auto end = std::chrono::high_resolution_clock::now();
-        total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
-        ++total_gets_;
-        Log(LogLevel::kDebug,
-            "Get: " + key + " (found tombstone on page_id=" + std::to_string(page_id) + ")");
-        return std::nullopt; // Key was deleted
-      }
-
-      offset += sizeof(uint32_t);
-
-      if (offset + value_size > kPageSize) {
-        buffer_pool_manager_->UnpinPage(page_id, false);
-        break;
-      }
-
-      std::string value(data + offset, value_size);
-      buffer_pool_manager_->UnpinPage(page_id, false);
-
-      auto end = std::chrono::high_resolution_clock::now();
-      total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
-      ++total_gets_;
-
-      Log(LogLevel::kDebug, "Get: " + key + " (found on page_id=" + std::to_string(page_id) + ")");
-      return value;
-    }
-
-    buffer_pool_manager_->UnpinPage(page_id, false);
+  // Use in-memory index for O(1) lookup instead of O(N) scan
+  auto it = key_to_page_.find(key);
+  if (it == key_to_page_.end()) {
+    return std::nullopt; // Key not found
   }
+
+  PageId page_id = it->second;
+  auto page = buffer_pool_manager_->FetchPage(page_id);
+  if (!page) {
+    auto end = std::chrono::high_resolution_clock::now();
+    total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
+    ++total_gets_;
+    return std::nullopt;
+  }
+
+  // Parse key-value from page
+  const char* data = page->GetData();
+  std::size_t offset = 0;
+
+  if (offset + sizeof(uint32_t) > kPageSize) {
+    buffer_pool_manager_->UnpinPage(page_id, false);
+    return std::nullopt;
+  }
+
+  uint32_t key_size;
+  std::memcpy(&key_size, data + offset, sizeof(uint32_t));
+  offset += sizeof(uint32_t);
+
+  if (offset + key_size > kPageSize) {
+    buffer_pool_manager_->UnpinPage(page_id, false);
+    return std::nullopt;
+  }
+
+  offset += key_size; // Skip the key (we already know it matches)
+
+  // Check if it's deleted (tombstone)
+  if (offset + sizeof(uint32_t) > kPageSize) {
+    buffer_pool_manager_->UnpinPage(page_id, false);
+    return std::nullopt;
+  }
+
+  uint32_t value_size;
+  std::memcpy(&value_size, data + offset, sizeof(uint32_t));
+
+  // Check for tombstone marker
+  if (value_size == UINT32_MAX) {
+    buffer_pool_manager_->UnpinPage(page_id, false);
+    auto end = std::chrono::high_resolution_clock::now();
+    total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
+    ++total_gets_;
+    Log(LogLevel::kDebug,
+        "Get: " + key + " (found tombstone on page_id=" + std::to_string(page_id) + ")");
+    return std::nullopt; // Key was deleted
+  }
+
+  offset += sizeof(uint32_t);
+
+  if (offset + value_size > kPageSize) {
+    buffer_pool_manager_->UnpinPage(page_id, false);
+    return std::nullopt;
+  }
+
+  std::string value(data + offset, value_size);
+  buffer_pool_manager_->UnpinPage(page_id, false);
 
   auto end = std::chrono::high_resolution_clock::now();
   total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
   ++total_gets_;
 
-  Log(LogLevel::kDebug, "Get: " + key + " (not found)");
-  return std::nullopt;
+  Log(LogLevel::kDebug, "Get: " + key + " (found on page_id=" + std::to_string(page_id) + ")");
+  return value;
 }
 
 Status Engine::Delete(std::string key) {
@@ -328,56 +367,54 @@ Status Engine::Delete(std::string key) {
     return Status::Internal("Engine is not open");
   }
 
-  // Search for the key in all allocated pages
-  for (PageId page_id = 1; page_id <= disk_manager_->GetNumPages(); ++page_id) {
-    auto page = buffer_pool_manager_->FetchPage(page_id);
-    if (!page) {
-      continue; // Page not available
-    }
-
-    // Parse key from page
-    const char* data = page->GetData();
-    std::size_t offset = 0;
-
-    if (offset + sizeof(uint32_t) > kPageSize) {
-      buffer_pool_manager_->UnpinPage(page_id, false);
-      continue;
-    }
-
-    uint32_t key_size;
-    std::memcpy(&key_size, data + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-
-    if (offset + key_size > kPageSize) {
-      buffer_pool_manager_->UnpinPage(page_id, false);
-      continue;
-    }
-
-    std::string stored_key(data + offset, key_size);
-
-    if (stored_key == key) {
-      // Found the key - mark as deleted by setting value_size to UINT32_MAX (tombstone)
-      offset += key_size;
-
-      // Overwrite value_size with tombstone marker
-      uint32_t tombstone = UINT32_MAX;
-      char* write_data = page->GetData();
-      std::memcpy(write_data + offset, &tombstone, sizeof(uint32_t));
-
-      page->MarkDirty();
-      page->UpdateChecksum();
-      buffer_pool_manager_->UnpinPage(page_id, true);
-
-      Log(LogLevel::kDebug,
-          "Delete: " + key + " (marked with tombstone on page_id=" + std::to_string(page_id) + ")");
-      return Status::Ok();
-    }
-
-    buffer_pool_manager_->UnpinPage(page_id, false);
+  // Use in-memory index for O(1) lookup
+  auto it = key_to_page_.find(key);
+  if (it == key_to_page_.end()) {
+    Log(LogLevel::kDebug, "Delete: " + key + " (key not found)");
+    return Status::Ok(); // Deleting non-existent key is OK
   }
 
-  Log(LogLevel::kDebug, "Delete: " + key + " (key not found)");
-  return Status::Ok(); // Deleting non-existent key is OK
+  PageId page_id = it->second;
+  auto page = buffer_pool_manager_->FetchPage(page_id);
+  if (!page) {
+    return Status::Internal("Failed to fetch page for deletion");
+  }
+
+  // Parse key from page to find offset
+  const char* data = page->GetData();
+  std::size_t offset = 0;
+
+  if (offset + sizeof(uint32_t) > kPageSize) {
+    buffer_pool_manager_->UnpinPage(page_id, false);
+    return Status::Corruption("Page corrupted");
+  }
+
+  uint32_t key_size;
+  std::memcpy(&key_size, data + offset, sizeof(uint32_t));
+  offset += sizeof(uint32_t);
+
+  if (offset + key_size > kPageSize) {
+    buffer_pool_manager_->UnpinPage(page_id, false);
+    return Status::Corruption("Page corrupted");
+  }
+
+  offset += key_size; // Skip to value_size field
+
+  // Mark as deleted by setting value_size to UINT32_MAX (tombstone)
+  uint32_t tombstone = UINT32_MAX;
+  char* write_data = page->GetData();
+  std::memcpy(write_data + offset, &tombstone, sizeof(uint32_t));
+
+  page->MarkDirty();
+  page->UpdateChecksum();
+  buffer_pool_manager_->UnpinPage(page_id, true);
+
+  // Remove from index (key still on disk as tombstone, but not in memory index)
+  key_to_page_.erase(it);
+
+  Log(LogLevel::kDebug,
+      "Delete: " + key + " (marked with tombstone on page_id=" + std::to_string(page_id) + ")");
+  return Status::Ok();
 }
 
 Status Engine::BatchWrite(const std::vector<BatchOperation>& operations) {

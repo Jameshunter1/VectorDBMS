@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 #include <core_engine/common/config.hpp>
 #include <core_engine/common/status.hpp>
@@ -178,6 +179,9 @@ class Engine {
    std::unique_ptr<LogManager> log_manager_;                // Write-Ahead Log (Year 1 Q4)
    bool is_open_ = false;
    TxnId next_txn_id_ = 1; // Transaction ID counter for WAL
+
+   // In-memory index: key -> page_id mapping (prevents O(N) linear scans)
+   std::unordered_map<std::string, PageId> key_to_page_;
 
    // Group commit optimization
    bool batch_mode_ = false; // Whether we're in batch mode
