@@ -1,13 +1,20 @@
 # Lightweight Linux Dockerfile for Vectis Database
 FROM ubuntu:22.04 AS builder
 
-# Install dependencies
+# Install dependencies (including CMake 3.24+ from Kitware's repository)
 RUN apt-get update && apt-get install -y \
     build-essential \
-    cmake \
     git \
     ninja-build \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Install CMake 3.24+ from official Kitware repository
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - > /usr/share/keyrings/kitware-archive-keyring.gpg && \
+    echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main' > /etc/apt/sources.list.d/kitware.list && \
+    apt-get update && \
+    apt-get install -y cmake && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy source code
 WORKDIR /build
