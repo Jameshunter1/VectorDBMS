@@ -112,15 +112,17 @@ TEST_CASE("Storage Layer: DiskManager", "[storage][disk]") {
     DiskManager dm(db_dir / "io.db");
     REQUIRE(dm.Open().ok());
     
-    // Create page
+    // Allocate page first to get page_id
+    auto page_id = dm.AllocatePage();
+    
+    // Create page with correct page_id
     Page write_page;
-    write_page.SetPageId(42);
+    write_page.SetPageId(page_id);
     write_page.SetLSN(1000);
     std::memcpy(write_page.GetData(), "Hello, World!", 13);
     write_page.UpdateChecksum();
     
     // Write page
-    auto page_id = dm.AllocatePage();
     REQUIRE(dm.WritePage(page_id, &write_page).ok());
     
     // Read page back
@@ -128,7 +130,7 @@ TEST_CASE("Storage Layer: DiskManager", "[storage][disk]") {
     REQUIRE(dm.ReadPage(page_id, &read_page).ok());
     
     // Verify
-    REQUIRE(read_page.GetPageId() == 42);
+    REQUIRE(read_page.GetPageId() == page_id);
     REQUIRE(read_page.GetLSN() == 1000);
     REQUIRE(std::memcmp(read_page.GetData(), "Hello, World!", 13) == 0);
     REQUIRE(read_page.VerifyChecksum());
