@@ -3,8 +3,8 @@
 // Implementation of BufferPoolManager with LRU-K eviction policy
 // Year 1 Q3: Advanced replacement using backward k-distance
 
-#include <core_engine/storage/buffer_pool_manager.hpp>
 #include <core_engine/common/logger.hpp>
+#include <core_engine/storage/buffer_pool_manager.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -17,19 +17,17 @@ namespace core_engine {
 // ============================================================================
 
 BufferPoolManager::BufferPoolManager(std::size_t pool_size, DiskManager* disk_manager)
-    : pool_size_(pool_size),
-      pages_(new Page[pool_size]),
-      disk_manager_(disk_manager),
-      replacer_(std::make_unique<LRUKReplacer>(2, pool_size)) {  // k=2 for LRU-2
-  
+    : pool_size_(pool_size), pages_(new Page[pool_size]), disk_manager_(disk_manager),
+      replacer_(std::make_unique<LRUKReplacer>(2, pool_size)) { // k=2 for LRU-2
+
   // Initialize free list with all frames
   for (std::size_t i = 0; i < pool_size_; ++i) {
     free_list_.push_back(static_cast<int>(i));
   }
 
-  Log(LogLevel::kInfo, "BufferPoolManager initialized with " + 
-      std::to_string(pool_size) + " pages (" + 
-      std::to_string(pool_size * kPageSize / 1024) + " KB) using LRU-2 eviction");
+  Log(LogLevel::kInfo, "BufferPoolManager initialized with " + std::to_string(pool_size) +
+                           " pages (" + std::to_string(pool_size * kPageSize / 1024) +
+                           " KB) using LRU-2 eviction");
 }
 
 BufferPoolManager::~BufferPoolManager() {
@@ -47,14 +45,14 @@ Page* BufferPoolManager::FetchPage(PageId page_id) {
   if (it != page_table_.end()) {
     int frame_id = it->second;
     Page* page = &pages_[frame_id];
-    
+
     // Increment pin count to prevent eviction
     page->IncrementPinCount();
     replacer_->Pin(frame_id);
-    
+
     // Record access for LRU-K
     replacer_->RecordAccess(frame_id);
-    
+
     ++cache_hits_;
     return page;
   }
@@ -95,12 +93,12 @@ Page* BufferPoolManager::FetchPage(PageId page_id) {
   // Load page from disk
   Page* page = &pages_[frame_id];
   auto status = disk_manager_->ReadPage(page_id, page);
-  
+
   if (!status.ok()) {
     // Read failed - return frame to free list
     free_list_.push_back(frame_id);
-    Log(LogLevel::kError, "Failed to read page " + std::to_string(page_id) + 
-        ": " + status.ToString());
+    Log(LogLevel::kError,
+        "Failed to read page " + std::to_string(page_id) + ": " + status.ToString());
     return nullptr;
   }
 
@@ -108,8 +106,7 @@ Page* BufferPoolManager::FetchPage(PageId page_id) {
   if (!page->VerifyChecksum()) {
     // Corrupted page - return frame to free list
     free_list_.push_back(frame_id);
-    Log(LogLevel::kError, "Checksum verification failed for page " + 
-        std::to_string(page_id));
+    Log(LogLevel::kError, "Checksum verification failed for page " + std::to_string(page_id));
     return nullptr;
   }
 
@@ -117,7 +114,7 @@ Page* BufferPoolManager::FetchPage(PageId page_id) {
   page_table_[page_id] = frame_id;
   page->IncrementPinCount();
   replacer_->Pin(frame_id);
-  
+
   // Record access for LRU-K
   replacer_->RecordAccess(frame_id);
 
@@ -244,8 +241,8 @@ Page* BufferPoolManager::NewPage(PageId* page_id) {
   Page* page = &pages_[frame_id];
   page->Reset(new_page_id);
   page->IncrementPinCount();
-  page->MarkDirty();                      // New page needs to be written
-  page->SetLSN(0);                        // TODO: Get from LogManager in Q4
+  page->MarkDirty(); // New page needs to be written
+  page->SetLSN(0);   // TODO: Get from LogManager in Q4
 
   // CRITICAL: Update checksum so page can be read before flush
   // Without this, reading the page before it's flushed causes checksum mismatch
@@ -309,9 +306,8 @@ BufferPoolManager::Stats BufferPoolManager::GetStats() const {
   stats.pages_evicted = pages_evicted_.load();
 
   std::size_t total_requests = stats.cache_hits + stats.cache_misses;
-  stats.hit_rate = (total_requests > 0) 
-      ? static_cast<double>(stats.cache_hits) / total_requests 
-      : 0.0;
+  stats.hit_rate =
+      (total_requests > 0) ? static_cast<double>(stats.cache_hits) / total_requests : 0.0;
 
   return stats;
 }
@@ -344,8 +340,8 @@ bool BufferPoolManager::FlushPageInternal(int frame_id) {
   // Write to disk
   auto status = disk_manager_->WritePage(page->GetPageId(), page);
   if (!status.ok()) {
-    Log(LogLevel::kError, "Failed to write page " + 
-        std::to_string(page->GetPageId()) + ": " + status.ToString());
+    Log(LogLevel::kError,
+        "Failed to write page " + std::to_string(page->GetPageId()) + ": " + status.ToString());
     return false;
   }
 
@@ -360,8 +356,7 @@ bool BufferPoolManager::FlushPageInternal(int frame_id) {
 // LRUKReplacer Implementation
 // ============================================================================
 
-LRUKReplacer::LRUKReplacer(std::size_t k, std::size_t num_frames)
-    : k_(k), num_frames_(num_frames) {
+LRUKReplacer::LRUKReplacer(std::size_t k, std::size_t num_frames) : k_(k), num_frames_(num_frames) {
   // Pre-allocate history vectors for all frames
   for (std::size_t i = 0; i < num_frames; ++i) {
     frame_info_[static_cast<int>(i)].history.resize(k);
@@ -372,11 +367,11 @@ void LRUKReplacer::RecordAccess(int frame_id) {
   std::lock_guard<std::mutex> lock(latch_);
 
   auto& info = frame_info_[frame_id];
-  
+
   // Store current timestamp in circular buffer
   info.history[info.write_index] = std::chrono::steady_clock::now();
   info.write_index = (info.write_index + 1) % k_;
-  
+
   if (info.history_size < k_) {
     ++info.history_size;
   }
@@ -396,7 +391,7 @@ int LRUKReplacer::Evict() {
     }
 
     double distance = GetBackwardKDistance(frame_id, current_time);
-    
+
     if (distance > max_distance) {
       max_distance = distance;
       victim = frame_id;
@@ -412,7 +407,7 @@ int LRUKReplacer::Evict() {
 
 void LRUKReplacer::Pin(int frame_id) {
   std::lock_guard<std::mutex> lock(latch_);
-  
+
   auto it = frame_info_.find(frame_id);
   if (it != frame_info_.end()) {
     it->second.is_evictable = false;
@@ -421,7 +416,7 @@ void LRUKReplacer::Pin(int frame_id) {
 
 void LRUKReplacer::Unpin(int frame_id) {
   std::lock_guard<std::mutex> lock(latch_);
-  
+
   auto it = frame_info_.find(frame_id);
   if (it != frame_info_.end()) {
     it->second.is_evictable = true;
@@ -430,7 +425,7 @@ void LRUKReplacer::Unpin(int frame_id) {
 
 std::size_t LRUKReplacer::Size() const {
   std::lock_guard<std::mutex> lock(latch_);
-  
+
   std::size_t count = 0;
   for (const auto& [frame_id, info] : frame_info_) {
     if (info.is_evictable) {
@@ -453,10 +448,10 @@ double LRUKReplacer::GetBackwardKDistance(int frame_id, Timestamp current_time) 
   auto kth_timestamp = info.history[kth_index];
 
   // Calculate backward k-distance (in milliseconds)
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-      current_time - kth_timestamp);
-  
+  auto duration =
+      std::chrono::duration_cast<std::chrono::milliseconds>(current_time - kth_timestamp);
+
   return static_cast<double>(duration.count());
 }
 
-}  // namespace core_engine
+} // namespace core_engine

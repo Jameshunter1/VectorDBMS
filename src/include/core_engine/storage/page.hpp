@@ -198,4 +198,4 @@ private:
 
 static_assert(sizeof(Page) == 4096, "Page must be exactly 4 KB");
 
-}  // namespace core_engine
+} // namespace core_engine

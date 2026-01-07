@@ -26,7 +26,7 @@ struct MetricsCollector::EngineStats {
   std::size_t total_puts;
 };
 
-}  // namespace core_engine
+} // namespace core_engine
 
 namespace core_engine {
 
@@ -38,13 +38,11 @@ MetricsCollector::MetricsCollector() {
   // Initialize standard histogram buckets (latency in seconds).
   // Buckets: 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, +Inf
   std::vector<double> latency_buckets = {
-    0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, 
-    std::numeric_limits<double>::infinity()
-  };
-  
+      0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0, std::numeric_limits<double>::infinity()};
+
   histograms_["core_engine_get_latency_seconds"] = {};
   histograms_["core_engine_put_latency_seconds"] = {};
-  
+
   for (double bound : latency_buckets) {
     histograms_["core_engine_get_latency_seconds"].push_back({bound, 0});
     histograms_["core_engine_put_latency_seconds"].push_back({bound, 0});
@@ -62,12 +60,12 @@ void MetricsCollector::SetGauge(const std::string& name, double value) {
 
 void MetricsCollector::ObserveHistogram(const std::string& name, double value) {
   std::lock_guard<std::mutex> lock(mutex_);
-  
+
   auto it = histograms_.find(name);
   if (it == histograms_.end()) {
     return;
   }
-  
+
   // Find the bucket this value belongs to.
   for (auto& bucket : it->second) {
     if (value <= bucket.upper_bound) {
@@ -80,20 +78,19 @@ void MetricsCollector::ObserveHistogram(const std::string& name, double value) {
 std::string MetricsCollector::GetPrometheusText() const {
   std::lock_guard<std::mutex> lock(mutex_);
   std::ostringstream oss;
-  
+
   // Timestamp
   auto now = std::chrono::system_clock::now();
-  auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-    now.time_since_epoch()
-  ).count();
-  
+  auto timestamp =
+      std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+
   oss << "# Prometheus Metrics - Core Engine v1.4\n";
   oss << "# Generated: " << timestamp << "\n\n";
-  
+
   // =========================================================================
   // COUNTERS
   // =========================================================================
-  
+
   if (!counters_.empty()) {
     oss << "# COUNTERS\n";
     for (const auto& [name, value] : counters_) {
@@ -103,11 +100,11 @@ std::string MetricsCollector::GetPrometheusText() const {
       oss << name << " " << val << "\n\n";
     }
   }
-  
+
   // =========================================================================
   // GAUGES
   // =========================================================================
-  
+
   if (!gauges_.empty()) {
     oss << "# GAUGES\n";
     for (const auto& [name, value] : gauges_) {
@@ -116,21 +113,21 @@ std::string MetricsCollector::GetPrometheusText() const {
       oss << name << " " << value << "\n\n";
     }
   }
-  
+
   // =========================================================================
   // HISTOGRAMS
   // =========================================================================
-  
+
   if (!histograms_.empty()) {
     oss << "# HISTOGRAMS\n";
     for (const auto& [name, buckets] : histograms_) {
       oss << "# HELP " << name << " Latency distribution\n";
       oss << "# TYPE " << name << " histogram\n";
-      
+
       std::uint64_t cumulative = 0;
       for (const auto& bucket : buckets) {
         cumulative += bucket.count;
-        
+
         oss << name << "_bucket{le=\"";
         if (std::isinf(bucket.upper_bound)) {
           oss << "+Inf";
@@ -139,12 +136,12 @@ std::string MetricsCollector::GetPrometheusText() const {
         }
         oss << "\"} " << cumulative << "\n";
       }
-      
+
       oss << name << "_count " << cumulative << "\n";
-      oss << name << "_sum " << cumulative << "\n\n";  // TODO: Track actual sum
+      oss << name << "_sum " << cumulative << "\n\n"; // TODO: Track actual sum
     }
   }
-  
+
   return oss.str();
 }
 
@@ -156,8 +153,8 @@ void MetricsCollector::UpdateFromEngineStats(const EngineStats& stats) {
   SetGauge("core_engine_checksum_failures", static_cast<double>(stats.checksum_failures));
 
   // Update counters
-  IncrementCounter("core_engine_requests_total", 0);  // Ensure it exists
-  IncrementCounter("core_engine_get_operations_total", 0);  // Will be updated by actual ops
+  IncrementCounter("core_engine_requests_total", 0);       // Ensure it exists
+  IncrementCounter("core_engine_get_operations_total", 0); // Will be updated by actual ops
   IncrementCounter("core_engine_put_operations_total", 0);
 
   // Performance metrics
@@ -215,13 +212,12 @@ MetricsCollector& GetGlobalMetrics() {
 // ============================================================================
 
 ScopedTimer::ScopedTimer(std::string metric_name)
-    : metric_name_(std::move(metric_name)),
-      start_(std::chrono::steady_clock::now()) {}
+    : metric_name_(std::move(metric_name)), start_(std::chrono::steady_clock::now()) {}
 
 ScopedTimer::~ScopedTimer() {
   auto end = std::chrono::steady_clock::now();
   auto duration = std::chrono::duration<double>(end - start_).count();
-  
+
   // Record latency in histogram
   GetGlobalMetrics().ObserveHistogram(metric_name_, duration);
 }
@@ -235,9 +231,15 @@ std::string HealthStatus::ToJson() const {
   oss << "{\n";
   oss << "  \"status\": \"";
   switch (status) {
-    case Status::HEALTHY:   oss << "healthy"; break;
-    case Status::DEGRADED:  oss << "degraded"; break;
-    case Status::UNHEALTHY: oss << "unhealthy"; break;
+  case Status::HEALTHY:
+    oss << "healthy";
+    break;
+  case Status::DEGRADED:
+    oss << "degraded";
+    break;
+  case Status::UNHEALTHY:
+    oss << "unhealthy";
+    break;
   }
   oss << "\",\n";
   oss << "  \"message\": \"" << message << "\",\n";
@@ -258,23 +260,23 @@ std::string HealthStatus::ToJson() const {
 
 HealthStatus CheckHealth(const Engine& engine) {
   HealthStatus health;
-  
+
   auto stats = engine.GetStats();
 
   // Check if database is operational (page I/O working)
-  health.database_open = true; // Database is open if we can get stats
-  health.wal_healthy = true;                       // TODO: Add WAL health check (Year 1 Q4)
-  health.memtable_healthy = true;                  // Deprecated (page-based architecture)
-  health.sstables_healthy = true;                  // Deprecated (page-based architecture)
+  health.database_open = true;    // Database is open if we can get stats
+  health.wal_healthy = true;      // TODO: Add WAL health check (Year 1 Q4)
+  health.memtable_healthy = true; // Deprecated (page-based architecture)
+  health.sstables_healthy = true; // Deprecated (page-based architecture)
 
   // Calculate resource usage (page-based)
   health.memory_usage_mb = (stats.total_pages * 4096) / (1024.0 * 1024.0); // Buffer pool size
   health.disk_usage_mb = (stats.total_pages * 4096) / (1024.0 * 1024.0);   // Total pages on disk
-  health.active_connections = 0;  // TODO: Track active connections
-  
+  health.active_connections = 0; // TODO: Track active connections
+
   // Determine overall status
-  if (health.database_open && health.wal_healthy && 
-      health.memtable_healthy && health.sstables_healthy) {
+  if (health.database_open && health.wal_healthy && health.memtable_healthy &&
+      health.sstables_healthy) {
     health.status = HealthStatus::Status::HEALTHY;
     health.message = "All systems operational";
   } else if (health.database_open) {
@@ -284,8 +286,8 @@ HealthStatus CheckHealth(const Engine& engine) {
     health.status = HealthStatus::Status::UNHEALTHY;
     health.message = "Database not operational";
   }
-  
+
   return health;
 }
 
-}  // namespace core_engine
+} // namespace core_engine

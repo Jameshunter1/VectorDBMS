@@ -18,8 +18,8 @@ namespace core_engine {
 // This is where a query plan would be executed against storage.
 // Keeping the boundary explicit early makes long-term refactors less painful.
 class Executor {
- public:
+public:
   Status Execute(std::string_view statement);
 };
 
-}  // namespace core_engine
+} // namespace core_engine

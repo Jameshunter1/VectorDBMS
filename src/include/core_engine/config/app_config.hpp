@@ -38,36 +38,48 @@ struct DatabaseConfig {
 
 // Application configuration
 class AppConfig {
- public:
+public:
   static AppConfig& Instance();
-  
+
   // Load configuration from file
   bool Load(const std::string& config_file);
-  
+
   // Save configuration to file
   bool Save(const std::string& config_file) const;
-  
+
   // Accessors
-  const ServerConfig& Server() const { return server_; }
-  const SecurityConfig& Security() const { return security_; }
-  const DatabaseConfig& Database() const { return database_; }
-  
+  const ServerConfig& Server() const {
+    return server_;
+  }
+  const SecurityConfig& Security() const {
+    return security_;
+  }
+  const DatabaseConfig& Database() const {
+    return database_;
+  }
+
   // Mutators
-  ServerConfig& MutableServer() { return server_; }
-  SecurityConfig& MutableSecurity() { return security_; }
-  DatabaseConfig& MutableDatabase() { return database_; }
-  
+  ServerConfig& MutableServer() {
+    return server_;
+  }
+  SecurityConfig& MutableSecurity() {
+    return security_;
+  }
+  DatabaseConfig& MutableDatabase() {
+    return database_;
+  }
+
   // Default configurations
   static AppConfig Development();
   static AppConfig Production();
-  
- private:
+
+private:
   AppConfig() = default;
-  
+
   ServerConfig server_;
   SecurityConfig security_;
   DatabaseConfig database_;
 };
 
-}  // namespace config
-}  // namespace core_engine
+} // namespace config
+} // namespace core_engine

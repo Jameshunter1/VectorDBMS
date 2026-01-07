@@ -346,4 +346,3 @@ int main(int argc, char** argv) {
   Log(LogLevel::kInfo, "Done");
   return 0;
 }
-

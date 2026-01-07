@@ -42,10 +42,12 @@ enum class StatusCode {
   kIoError,
   kCorruption,
 };
-//Returns the status of an operation specified by a StatusCode and an optional message.
+// Returns the status of an operation specified by a StatusCode and an optional message.
 class Status {
- public:
-  static Status Ok() { return Status(StatusCode::kOk, ""); }
+public:
+  static Status Ok() {
+    return Status(StatusCode::kOk, "");
+  }
 
   static Status InvalidArgument(std::string message) {
     return Status(StatusCode::kInvalidArgument, std::move(message));
@@ -75,18 +77,24 @@ class Status {
     return Status(StatusCode::kCorruption, std::move(message));
   }
 
-  StatusCode code() const { return code_; }
-  std::string_view message() const { return message_; }
+  StatusCode code() const {
+    return code_;
+  }
+  std::string_view message() const {
+    return message_;
+  }
 
-  bool ok() const { return code_ == StatusCode::kOk; }
+  bool ok() const {
+    return code_ == StatusCode::kOk;
+  }
 
   std::string ToString() const;
 
- private:
+private:
   Status(StatusCode code, std::string message) : code_(code), message_(std::move(message)) {}
 
   StatusCode code_;
   std::string message_;
 };
 
-}  // namespace core_engine
+} // namespace core_engine

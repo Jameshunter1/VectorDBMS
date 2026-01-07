@@ -4,7 +4,8 @@
 
 namespace core_engine {
 
-// Transaction is intentionally small. A transaction is a tag for a series of operations that should be atomic and isolated.
+// Transaction is intentionally small. A transaction is a tag for a series of operations that should
+// be atomic and isolated.
 
 // Future directions:
 // - MVCC timestamps
@@ -14,13 +15,15 @@ namespace core_engine {
 using TxnId = std::uint64_t;
 
 class Txn {
- public:
+public:
   explicit Txn(TxnId id) : id_(id) {}
 
-  TxnId id() const { return id_; }
+  TxnId id() const {
+    return id_;
+  }
 
- private:
+private:
   TxnId id_;
 };
 
-}  // namespace core_engine
+} // namespace core_engine

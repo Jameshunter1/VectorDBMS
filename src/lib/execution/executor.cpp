@@ -7,4 +7,4 @@ Status Executor::Execute(std::string_view /*statement*/) {
   return Status::Unimplemented("Execution engine not implemented");
 }
 
-}  // namespace core_engine
+} // namespace core_engine

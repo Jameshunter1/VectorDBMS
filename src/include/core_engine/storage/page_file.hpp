@@ -18,15 +18,15 @@ namespace core_engine {
 //
 // This class is a placeholder seam where your real storage engine will grow.
 class PageFile {
- public:
+public:
   explicit PageFile(std::filesystem::path path);
 
   Status OpenOrCreate();
   Status Read(PageId id, Page* out_page);
   Status Write(PageId id, const Page& page);
 
- private:
+private:
   std::filesystem::path path_;
 };
 
-}  // namespace core_engine
+} // namespace core_engine

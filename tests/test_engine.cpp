@@ -19,20 +19,19 @@ TEST_CASE("Engine opens a database directory") {
   REQUIRE(status.ok());
 }
 
-TEST_CASE("Engine Put/Get round-trip (page-based)")
-{
- core_engine::Engine engine;
+TEST_CASE("Engine Put/Get round-trip (page-based)") {
+  core_engine::Engine engine;
 
- const auto db_dir = std::filesystem::temp_directory_path() / "core_engine_test_db_kv";
- const auto open_status = engine.Open(db_dir);
- REQUIRE(open_status.ok());
+  const auto db_dir = std::filesystem::temp_directory_path() / "core_engine_test_db_kv";
+  const auto open_status = engine.Open(db_dir);
+  REQUIRE(open_status.ok());
 
- const auto put_status = engine.Put("hello", "world");
- REQUIRE(put_status.ok());
+  const auto put_status = engine.Put("hello", "world");
+  REQUIRE(put_status.ok());
 
- const auto value = engine.Get("hello");
- REQUIRE(value.has_value());
- REQUIRE(*value == "world");
+  const auto value = engine.Get("hello");
+  REQUIRE(value.has_value());
+  REQUIRE(*value == "world");
 }
 
 TEST_CASE("Engine recovers values after restart (WAL replay)") {
@@ -138,7 +137,7 @@ TEST_CASE("Engine compacts SSTables when threshold reached") {
     REQUIRE(std::filesystem::exists(pages_file));
 
     const auto file_size = std::filesystem::file_size(pages_file);
-    REQUIRE(file_size > 1024 * 1024);  // Should have written at least 1 MB
+    REQUIRE(file_size > 1024 * 1024); // Should have written at least 1 MB
   }
 
   // Restart and verify all values are readable.
@@ -172,7 +171,7 @@ TEST_CASE("Engine handles Delete operations correctly") {
   // Put, then delete
   REQUIRE(engine.Put("key1", "value1").ok());
   REQUIRE(engine.Get("key1").has_value());
-  
+
   REQUIRE(engine.Delete("key1").ok());
   REQUIRE_FALSE(engine.Get("key1").has_value());
 
@@ -192,7 +191,7 @@ TEST_CASE("Engine tombstones persist across restarts") {
   {
     core_engine::Engine engine;
     engine.Open(db_dir);
-    
+
     REQUIRE(engine.Put("key1", "original").ok());
     REQUIRE(engine.Delete("key1").ok());
     REQUIRE_FALSE(engine.Get("key1").has_value());
@@ -202,9 +201,9 @@ TEST_CASE("Engine tombstones persist across restarts") {
   {
     core_engine::Engine engine;
     engine.Open(db_dir);
-    
+
     REQUIRE_FALSE(engine.Get("key1").has_value());
-    
+
     // Can re-insert after tombstone
     REQUIRE(engine.Put("key1", "new_value").ok());
     REQUIRE(engine.Get("key1").value() == "new_value");
@@ -241,8 +240,8 @@ TEST_CASE("Engine handles overwrites correctly") {
 TEST_CASE("Engine handles empty and short values") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("core_engine_test_empty_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("core_engine_test_empty_" + std::to_string(suffix));
 
   core_engine::Engine engine;
   engine.Open(db_dir);
@@ -272,8 +271,8 @@ TEST_CASE("Engine handles empty and short values") {
 TEST_CASE("Engine handles large keys and values") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("core_engine_test_large_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("core_engine_test_large_" + std::to_string(suffix));
 
   core_engine::Engine engine;
   engine.Open(db_dir);
@@ -331,8 +330,8 @@ TEST_CASE("Engine handles special characters in keys and values") {
 TEST_CASE("Engine statistics are accurate") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("core_engine_test_stats_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("core_engine_test_stats_" + std::to_string(suffix));
 
   core_engine::Engine engine;
   engine.Open(db_dir);
@@ -393,8 +392,10 @@ TEST_CASE("Engine handles concurrent operations safely") {
     });
   }
 
-  for (auto& t : writers) t.join();
-  for (auto& t : readers) t.join();
+  for (auto& t : writers)
+    t.join();
+  for (auto& t : readers)
+    t.join();
 
   // Verify all writes succeeded
   for (int t = 0; t < 4; t++) {
@@ -425,32 +426,25 @@ TEST_CASE("Engine BatchWrite handles mixed operations") {
 
   // Batch with mixed PUT and DELETE
   std::vector<core_engine::Engine::BatchOperation> ops;
-  
+
   // Update some existing keys
   for (int i = 0; i < 25; i++) {
-    ops.push_back({
-      core_engine::Engine::BatchOperation::Type::PUT,
-      "key" + std::to_string(i),
-      "updated" + std::to_string(i)
-    });
+    ops.push_back({core_engine::Engine::BatchOperation::Type::PUT, "key" + std::to_string(i),
+                   "updated" + std::to_string(i)});
   }
-  
+
   // Delete some keys
   for (int i = 25; i < 50; i++) {
     ops.push_back({
-      core_engine::Engine::BatchOperation::Type::DELETE,
-      "key" + std::to_string(i),
-      ""  // Empty value for DELETE
+        core_engine::Engine::BatchOperation::Type::DELETE, "key" + std::to_string(i),
+        "" // Empty value for DELETE
     });
   }
-  
+
   // Add new keys
   for (int i = 50; i < 100; i++) {
-    ops.push_back({
-      core_engine::Engine::BatchOperation::Type::PUT,
-      "key" + std::to_string(i),
-      "new" + std::to_string(i)
-    });
+    ops.push_back({core_engine::Engine::BatchOperation::Type::PUT, "key" + std::to_string(i),
+                   "new" + std::to_string(i)});
   }
 
   REQUIRE(engine.BatchWrite(ops).ok());
@@ -481,28 +475,30 @@ TEST_CASE("Engine BatchWrite handles mixed operations") {
 TEST_CASE("Engine Scan returns correct range results") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("core_engine_test_scan_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("core_engine_test_scan_" + std::to_string(suffix));
 
   core_engine::Engine engine;
   engine.Open(db_dir);
 
   // Populate with sorted keys
   for (int i = 0; i < 100; i++) {
-    std::string key = "key_" + std::string(3 - std::min(3, static_cast<int>(std::to_string(i).length())), '0') + std::to_string(i);
+    std::string key =
+        "key_" + std::string(3 - std::min(3, static_cast<int>(std::to_string(i).length())), '0') +
+        std::to_string(i);
     engine.Put(key, "value" + std::to_string(i));
   }
 
   // Test basic range scan
   core_engine::ScanOptions opts;
   auto results = engine.Scan("key_010", "key_020", opts);
-  REQUIRE(results.size() == 10);  // key_010 to key_019
+  REQUIRE(results.size() == 10); // key_010 to key_019
 
   // Test reverse scan
   opts.reverse = true;
   results = engine.Scan("key_010", "key_020", opts);
   REQUIRE(results.size() == 10);
-  REQUIRE(results[0].first > results[results.size()-1].first);  // Descending order
+  REQUIRE(results[0].first > results[results.size() - 1].first); // Descending order
 
   // Test limit
   opts.reverse = false;
@@ -516,7 +512,7 @@ TEST_CASE("Engine Scan returns correct range results") {
   results = engine.Scan("key_030", "key_040", opts);
   REQUIRE(results.size() == 10);
   for (const auto& pair : results) {
-    REQUIRE(pair.second.empty());  // Values should be empty
+    REQUIRE(pair.second.empty()); // Values should be empty
   }
 
   std::error_code ec;

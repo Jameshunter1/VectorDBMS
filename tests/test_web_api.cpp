@@ -2,9 +2,9 @@
 #include <core_engine/engine.hpp>
 #include <httplib.h>
 
+#include <chrono>
 #include <filesystem>
 #include <thread>
-#include <chrono>
 
 using namespace core_engine;
 namespace fs = std::filesystem;
@@ -89,8 +89,7 @@ public:
         json << "{"
              << "\"total_pages\":" << stats.total_pages << ","
              << "\"total_puts\":" << stats.total_puts << ","
-             << "\"total_gets\":" << stats.total_gets
-             << "}";
+             << "\"total_gets\":" << stats.total_gets << "}";
         res.set_content(json.str(), "application/json");
       });
 
@@ -107,14 +106,16 @@ public:
     if (server_thread_.joinable()) {
       server_thread_.join();
     }
-    
+
     // Clean up after test
     if (fs::exists(db_dir_)) {
       fs::remove_all(db_dir_);
     }
   }
 
-  bool IsRunning() const { return running_; }
+  bool IsRunning() const {
+    return running_;
+  }
 
 private:
   std::string db_dir_;
@@ -241,7 +242,7 @@ TEST_CASE("Web API: Batch operations", "[web][api][integration][.]") {
 
   SECTION("Insert 100 entries") {
     const int count = 100;
-    
+
     for (int i = 0; i < count; i++) {
       httplib::Params params;
       params.emplace("key", "batch_" + std::to_string(i));

@@ -6,22 +6,22 @@ namespace core_engine {
 
 static const char* ToCodeString(StatusCode code) {
   switch (code) {
-    case StatusCode::kOk:
-      return "OK";
-    case StatusCode::kInvalidArgument:
-      return "INVALID_ARGUMENT";
-    case StatusCode::kNotFound:
-      return "NOT_FOUND";
-    case StatusCode::kAlreadyExists:
-      return "ALREADY_EXISTS";
-    case StatusCode::kUnimplemented:
-      return "UNIMPLEMENTED";
-    case StatusCode::kInternal:
-      return "INTERNAL";
-    case StatusCode::kIoError:
-      return "IO_ERROR";
-    case StatusCode::kCorruption:
-      return "CORRUPTION";
+  case StatusCode::kOk:
+    return "OK";
+  case StatusCode::kInvalidArgument:
+    return "INVALID_ARGUMENT";
+  case StatusCode::kNotFound:
+    return "NOT_FOUND";
+  case StatusCode::kAlreadyExists:
+    return "ALREADY_EXISTS";
+  case StatusCode::kUnimplemented:
+    return "UNIMPLEMENTED";
+  case StatusCode::kInternal:
+    return "INTERNAL";
+  case StatusCode::kIoError:
+    return "IO_ERROR";
+  case StatusCode::kCorruption:
+    return "CORRUPTION";
   }
 
   // Future-proofing: if new enum values are added, we still produce a string.
@@ -37,4 +37,4 @@ std::string Status::ToString() const {
   return out.str();
 }
 
-}  // namespace core_engine
+} // namespace core_engine

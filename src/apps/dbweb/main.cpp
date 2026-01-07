@@ -866,7 +866,7 @@ int main(int argc, char** argv) {
 
   Engine engine;
   auto status = engine.Open(db_dir);
-  
+
   if (!status.ok()) {
     Log(LogLevel::kError, status.ToString());
     return 1;
@@ -882,7 +882,7 @@ int main(int argc, char** argv) {
   server.Get("/api/stats", [&](const httplib::Request&, httplib::Response& res) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     const auto stats = engine.GetStats();
-    
+
     std::ostringstream json;
     json << "{"
          << "\"total_pages\":" << stats.total_pages << ","
@@ -927,33 +927,45 @@ int main(int argc, char** argv) {
   server.Get("/api/entries", [&](const httplib::Request&, httplib::Response& res) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     const auto entries = engine.GetAllEntries();
-    
+
     auto escape_json = [](const std::string& s) -> std::string {
       std::string result;
       for (char c : s) {
         switch (c) {
-          case '"': result += "\\\""; break;
-          case '\\': result += "\\\\"; break;
-          case '\n': result += "\\n"; break;
-          case '\r': result += "\\r"; break;
-          case '\t': result += "\\t"; break;
-          default: result += c;
+        case '"':
+          result += "\\\"";
+          break;
+        case '\\':
+          result += "\\\\";
+          break;
+        case '\n':
+          result += "\\n";
+          break;
+        case '\r':
+          result += "\\r";
+          break;
+        case '\t':
+          result += "\\t";
+          break;
+        default:
+          result += c;
         }
       }
       return result;
     };
-    
+
     std::ostringstream json;
     json << "{\"entries\":[";
-    
+
     bool first = true;
     for (const auto& [key, value] : entries) {
-      if (!first) json << ",";
+      if (!first)
+        json << ",";
       first = false;
       json << "{\"key\":\"" << escape_json(key) << "\","
            << "\"value\":\"" << escape_json(value) << "\"}";
     }
-    
+
     json << "]}";
     res.set_content(json.str(), "application/json");
   });
@@ -961,26 +973,28 @@ int main(int argc, char** argv) {
   server.Get("/api/files", [&](const httplib::Request&, httplib::Response& res) {
     std::ostringstream json;
     json << "{\"files\":[";
-    
+
     bool first = true;
     try {
       if (fs::exists(db_dir)) {
         for (const auto& entry : fs::recursive_directory_iterator(db_dir)) {
-          if (!first) json << ",";
+          if (!first)
+            json << ",";
           first = false;
-          
+
           const auto path = entry.path();
           const auto relative = fs::relative(path, db_dir);
           const bool is_dir = fs::is_directory(entry);
           const auto size = is_dir ? 0 : fs::file_size(entry);
-          
+
           json << "{\"name\":\"" << relative.string() << "\","
                << "\"is_dir\":" << (is_dir ? "true" : "false") << ","
                << "\"size\":" << size << "}";
         }
       }
-    } catch (...) {}
-    
+    } catch (...) {
+    }
+
     json << "]}";
     res.set_content(json.str(), "application/json");
   });
@@ -997,7 +1011,7 @@ int main(int argc, char** argv) {
 
     std::lock_guard<std::mutex> lock(engine_mutex);
     const auto put_status = engine.Put(key, value);
-    
+
     if (!put_status.ok()) {
       res.status = 500;
       res.set_content(put_status.ToString(), "text/plain");
@@ -1039,7 +1053,7 @@ int main(int argc, char** argv) {
 
     std::lock_guard<std::mutex> lock(engine_mutex);
     const auto delete_status = engine.Delete(key);
-    
+
     if (!delete_status.ok()) {
       res.status = 500;
       res.set_content(delete_status.ToString(), "text/plain");

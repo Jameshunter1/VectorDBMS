@@ -1,8 +1,8 @@
-# Auto-format all C++ source files with clang-format
+﻿# Auto-format all C++ source files with clang-format
 # Usage: .\format.ps1
 
-Write-Host "`n🎨 VectorDBMS Code Formatter" -ForegroundColor Cyan
-Write-Host "=" * 60 -ForegroundColor Cyan
+Write-Host "`nVectorDBMS Code Formatter" -ForegroundColor Cyan
+Write-Host ("=" * 60) -ForegroundColor Cyan
 
 # Check if clang-format is available
 $clangFormat = $null
@@ -13,7 +13,7 @@ foreach ($version in $clangFormatVersions) {
         $output = & $version --version 2>&1
         if ($LASTEXITCODE -eq 0) {
             $clangFormat = $version
-            Write-Host "`n✅ Found: $version" -ForegroundColor Green
+            Write-Host "`nFound: $version" -ForegroundColor Green
             Write-Host "   $output" -ForegroundColor Gray
             break
         }
@@ -23,16 +23,16 @@ foreach ($version in $clangFormatVersions) {
 }
 
 if (-not $clangFormat) {
-    Write-Host "`n❌ clang-format not found!" -ForegroundColor Red
+    Write-Host "`nERROR: clang-format not found!" -ForegroundColor Red
     Write-Host "`nPlease install LLVM/Clang:" -ForegroundColor Yellow
-    Write-Host "  • Windows: winget install LLVM.LLVM" -ForegroundColor Cyan
-    Write-Host "  • Or download from: https://releases.llvm.org/" -ForegroundColor Cyan
+    Write-Host "  - Windows: winget install LLVM.LLVM" -ForegroundColor Cyan
+    Write-Host "  - Or download from: https://releases.llvm.org/" -ForegroundColor Cyan
     Write-Host "`nAfter installation, restart your terminal." -ForegroundColor Yellow
     exit 1
 }
 
 # Format all source files
-Write-Host "`n📁 Formatting source files..." -ForegroundColor Yellow
+Write-Host "`nFormatting source files..." -ForegroundColor Yellow
 Write-Host "   Using: .clang-format in repository root" -ForegroundColor Gray
 
 $directories = @("src\include", "src\lib", "src\apps", "tests", "benchmarks")
@@ -49,13 +49,13 @@ foreach ($dir in $directories) {
             try {
                 & $clangFormat -i -style=file $file.FullName
                 $formattedFiles++
-                Write-Host "    ✓ $($file.Name)" -ForegroundColor Green
+                Write-Host "    [OK] $($file.Name)" -ForegroundColor Green
             } catch {
-                Write-Host "    ✗ $($file.Name): $_" -ForegroundColor Red
+                Write-Host "    [FAIL] $($file.Name): $_" -ForegroundColor Red
             }
         }
     }
 }
 
-Write-Host "`n✅ Formatted $formattedFiles of $totalFiles files" -ForegroundColor Green
-Write-Host "`n💡 Tip: Add clang-format to your pre-commit hook for automatic formatting" -ForegroundColor Cyan
+Write-Host "`nFormatted $formattedFiles of $totalFiles files successfully" -ForegroundColor Green
+Write-Host "`nTip: Add clang-format to your pre-commit hook for automatic formatting" -ForegroundColor Cyan

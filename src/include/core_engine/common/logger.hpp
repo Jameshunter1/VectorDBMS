@@ -21,5 +21,7 @@ enum class LogLevel {
 };
 
 void Log(LogLevel level, std::string_view message);
+void SetMinLogLevel(LogLevel level);
+LogLevel GetMinLogLevel();
 
-}  // namespace core_engine
+} // namespace core_engine

@@ -56,7 +56,7 @@ class LRUKReplacer;
 // - Per-page rwlock for concurrent reads
 // - Caller responsibility: hold appropriate latch while using page
 class BufferPoolManager {
- public:
+public:
   // Create buffer pool with specified capacity
   // pool_size: Number of pages to cache (e.g., 1024 = 4 MB)
   // disk_manager: Backend storage for page I/O (not owned)
@@ -138,23 +138,25 @@ class BufferPoolManager {
   // ========== Statistics ==========
 
   struct Stats {
-    std::size_t pool_size;        // Total frames in pool
-    std::size_t pages_cached;     // Current pages in pool
-    std::size_t cache_hits;       // FetchPage found in pool
-    std::size_t cache_misses;     // FetchPage had to load from disk
-    std::size_t pages_flushed;    // Dirty pages written to disk
-    std::size_t pages_evicted;    // Pages evicted (LRU)
-    std::size_t free_frames;      // Available frame slots
-    std::size_t pinned_pages;     // Pages with pin_count > 0
-    double hit_rate;              // cache_hits / (hits + misses)
+    std::size_t pool_size;     // Total frames in pool
+    std::size_t pages_cached;  // Current pages in pool
+    std::size_t cache_hits;    // FetchPage found in pool
+    std::size_t cache_misses;  // FetchPage had to load from disk
+    std::size_t pages_flushed; // Dirty pages written to disk
+    std::size_t pages_evicted; // Pages evicted (LRU)
+    std::size_t free_frames;   // Available frame slots
+    std::size_t pinned_pages;  // Pages with pin_count > 0
+    double hit_rate;           // cache_hits / (hits + misses)
   };
 
   Stats GetStats() const;
 
   // Get buffer pool size (max pages)
-  std::size_t GetPoolSize() const { return pool_size_; }
+  std::size_t GetPoolSize() const {
+    return pool_size_;
+  }
 
- private:
+private:
   // ========== Internal Helpers ==========
 
   // Find a victim frame to evict (unpinned page with lowest LRU)
@@ -166,15 +168,15 @@ class BufferPoolManager {
 
   // ========== Data Members ==========
 
-  const std::size_t pool_size_;                    // Max pages in pool
-  Page* pages_;                                    // Array of pages [pool_size_]
-  DiskManager* disk_manager_;                      // Backend storage (not owned)
-  std::unique_ptr<LRUKReplacer> replacer_;         // LRU-K eviction policy
+  const std::size_t pool_size_;            // Max pages in pool
+  Page* pages_;                            // Array of pages [pool_size_]
+  DiskManager* disk_manager_;              // Backend storage (not owned)
+  std::unique_ptr<LRUKReplacer> replacer_; // LRU-K eviction policy
 
-  std::unordered_map<PageId, int> page_table_;     // PageId -> frame_id
-  std::list<int> free_list_;                       // Available frames
+  std::unordered_map<PageId, int> page_table_; // PageId -> frame_id
+  std::list<int> free_list_;                   // Available frames
 
-  mutable std::shared_mutex latch_;                // Protects page_table_ and free_list_
+  mutable std::shared_mutex latch_; // Protects page_table_ and free_list_
 
   // Statistics (atomic for lock-free updates)
   std::atomic<std::size_t> cache_hits_{0};
@@ -206,7 +208,7 @@ class BufferPoolManager {
 // - On eviction, scan all unpinned frames to find max backward k-distance
 // - Frames with < k accesses are prioritized (infinite distance)
 class LRUKReplacer {
- public:
+public:
   // k: Number of historical accesses to track (typically 2)
   // num_frames: Total number of frames in buffer pool
   LRUKReplacer(std::size_t k, std::size_t num_frames);
@@ -233,26 +235,28 @@ class LRUKReplacer {
   std::size_t Size() const;
 
   // For backwards compatibility (aliased to Evict)
-  int Victim() { return Evict(); }
+  int Victim() {
+    return Evict();
+  }
 
- private:
+private:
   using Timestamp = std::chrono::steady_clock::time_point;
 
   struct FrameInfo {
-    std::vector<Timestamp> history;  // Circular buffer of last k timestamps
-    std::size_t history_size = 0;    // Number of valid entries in history
-    std::size_t write_index = 0;     // Next position to write in circular buffer
-    bool is_evictable = false;       // Can this frame be evicted?
+    std::vector<Timestamp> history; // Circular buffer of last k timestamps
+    std::size_t history_size = 0;   // Number of valid entries in history
+    std::size_t write_index = 0;    // Next position to write in circular buffer
+    bool is_evictable = false;      // Can this frame be evicted?
   };
 
   // Calculate backward k-distance for a frame
   // Returns: Duration in milliseconds, or +infinity if < k accesses
   double GetBackwardKDistance(int frame_id, Timestamp current_time) const;
 
-  std::size_t k_;                                   // Number of accesses to track
-  std::size_t num_frames_;                          // Total frames tracked
-  std::unordered_map<int, FrameInfo> frame_info_;   // Per-frame access history
-  mutable std::mutex latch_;                        // Protects frame_info_
+  std::size_t k_;                                 // Number of accesses to track
+  std::size_t num_frames_;                        // Total frames tracked
+  std::unordered_map<int, FrameInfo> frame_info_; // Per-frame access history
+  mutable std::mutex latch_;                      // Protects frame_info_
 };
 
-}  // namespace core_engine
+} // namespace core_engine

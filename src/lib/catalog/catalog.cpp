@@ -19,4 +19,4 @@ bool Catalog::HasTable(std::string_view name) const {
   return tables_.contains(std::string(name));
 }
 
-}  // namespace core_engine
+} // namespace core_engine

@@ -80,27 +80,27 @@ Status Engine::Open(const DatabaseConfig& config) {
   if (config_.enable_vector_index) {
     vector::HNSWIndex::Params hnsw_params;
     hnsw_params.dimension = config_.vector_dimension;
-    
+
     // Convert config metric to vector metric
     switch (config_.vector_metric) {
-      case DatabaseConfig::VectorDistanceMetric::kCosine:
-        hnsw_params.metric = vector::DistanceMetric::kCosine;
-        break;
-      case DatabaseConfig::VectorDistanceMetric::kEuclidean:
-        hnsw_params.metric = vector::DistanceMetric::kEuclidean;
-        break;
-      case DatabaseConfig::VectorDistanceMetric::kDotProduct:
-        hnsw_params.metric = vector::DistanceMetric::kDotProduct;
-        break;
-      case DatabaseConfig::VectorDistanceMetric::kManhattan:
-        hnsw_params.metric = vector::DistanceMetric::kManhattan;
-        break;
+    case DatabaseConfig::VectorDistanceMetric::kCosine:
+      hnsw_params.metric = vector::DistanceMetric::kCosine;
+      break;
+    case DatabaseConfig::VectorDistanceMetric::kEuclidean:
+      hnsw_params.metric = vector::DistanceMetric::kEuclidean;
+      break;
+    case DatabaseConfig::VectorDistanceMetric::kDotProduct:
+      hnsw_params.metric = vector::DistanceMetric::kDotProduct;
+      break;
+    case DatabaseConfig::VectorDistanceMetric::kManhattan:
+      hnsw_params.metric = vector::DistanceMetric::kManhattan;
+      break;
     }
-    
+
     hnsw_params.M = config_.hnsw_params.M;
     hnsw_params.ef_construction = config_.hnsw_params.ef_construction;
     hnsw_params.ef_search = config_.hnsw_params.ef_search;
-    
+
     vector_index_ = std::make_unique<vector::HNSWIndex>(hnsw_params);
     Log(LogLevel::kInfo,
         "Vector index initialized (dimension=" + std::to_string(config_.vector_dimension) + ")");
@@ -272,9 +272,10 @@ Status Engine::Put(std::string key, std::string value) {
   total_put_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
   ++total_puts_;
 
-  Log(LogLevel::kDebug,
-      "Put: " + key + " = " + value + " (page_id=" + std::to_string(page->GetPageId()) +
-          ", txn=" + std::to_string(txn_id) + ", lsn=" + std::to_string(commit_lsn) + ")");
+  // Verbose debug logging disabled for performance (floods logs in benchmarks)
+  // Log(LogLevel::kDebug,
+  //     "Put: " + key + " = " + value + " (page_id=" + std::to_string(page->GetPageId()) +
+  //         ", txn=" + std::to_string(txn_id) + ", lsn=" + std::to_string(commit_lsn) + ")");
   return Status::Ok();
 }
 
@@ -358,7 +359,8 @@ std::optional<std::string> Engine::Get(std::string key) {
   total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
   ++total_gets_;
 
-  Log(LogLevel::kDebug, "Get: " + key + " (found on page_id=" + std::to_string(page_id) + ")");
+  // Verbose debug logging disabled for performance
+  // Log(LogLevel::kDebug, "Get: " + key + " (found on page_id=" + std::to_string(page_id) + ")");
   return value;
 }
 
@@ -449,7 +451,7 @@ std::vector<std::optional<std::string>> Engine::BatchGet(const std::vector<std::
   return results;
 }
 
-std::vector<std::pair<std::string, std::string>> 
+std::vector<std::pair<std::string, std::string>>
 Engine::Scan(const std::string& start_key, const std::string& end_key, const ScanOptions& options) {
   std::vector<std::pair<std::string, std::string>> results;
 
@@ -539,7 +541,7 @@ Engine::Scan(const std::string& start_key, const std::string& end_key, const Sca
 }
 
 Status Engine::Execute(std::string_view statement) {
-  (void)statement;  // Suppress unused parameter warning
+  (void)statement; // Suppress unused parameter warning
   return Status::Unimplemented("SQL execution not implemented (Year 1 Q1 focuses on page layer)");
 }
 
@@ -640,11 +642,11 @@ std::vector<std::optional<vector::Vector>>
 Engine::BatchGetVectors(const std::vector<std::string>& keys) {
   std::vector<std::optional<vector::Vector>> results;
   results.reserve(keys.size());
-  
+
   for (const auto& key : keys) {
     results.push_back(GetVector(key));
   }
-  
+
   return results;
 }
 
@@ -716,4 +718,4 @@ Status Engine::Flush() {
   return log_manager_->ForceFlush();
 }
 
-}  // namespace core_engine
+} // namespace core_engine
