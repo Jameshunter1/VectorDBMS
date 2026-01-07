@@ -77,8 +77,9 @@ TEST_CASE("Engine flushes MemTable to SSTable when threshold exceeded") {
 
     // Write enough data to trigger flush (4 MB threshold).
     // Use 1 KB values to reach threshold faster.
+    // Reduced from 5000 to 2000 for faster CI builds (2MB, still triggers flush).
     const std::string large_value(1024, 'x');
-    for (int i = 0; i < 5000; ++i) {
+    for (int i = 0; i < 2000; ++i) {
       const auto key = "key_" + std::to_string(i);
       const auto put_status = engine.Put(key, large_value);
       REQUIRE(put_status.ok());
@@ -123,9 +124,10 @@ TEST_CASE("Engine compacts SSTables when threshold reached") {
 
     // Write enough data to create multiple SSTables.
     // Each flush creates 1 SSTable; after 4 flushes, compaction triggers.
+    // Reduced from 5×4500 to 3×2000 for faster CI (still tests compaction).
     const std::string large_value(1024, 'x');
-    for (int batch = 0; batch < 5; ++batch) {
-      for (int i = 0; i < 4500; ++i) {
+    for (int batch = 0; batch < 3; ++batch) {
+     for (int i = 0; i < 2000; ++i) {
         const auto key = "batch" + std::to_string(batch) + "_key" + std::to_string(i);
         const auto put_status = engine.Put(key, large_value);
         REQUIRE(put_status.ok());

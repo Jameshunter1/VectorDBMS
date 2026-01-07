@@ -32,8 +32,9 @@ jobs:
       cmake --build build/ci-${{ matrix.build_type }} --config ${{ matrix.build_type }} -j
 
    - name: Run Tests
+     timeout-minutes: 10
      run: |
-      ctest --test-dir build/ci-${{ matrix.build_type }} -C ${{ matrix.build_type }} --output-on-failure
+      ctest --test-dir build/ci-${{ matrix.build_type }} -C ${{ matrix.build_type }} --output-on-failure --timeout 120
 
    - name: Run Benchmarks (Release only)
      if: matrix.build_type == 'Release'
@@ -67,8 +68,9 @@ jobs:
       cmake --build build -j
 
    - name: Run Tests
+     timeout-minutes: 10
      run: |
-      ctest --test-dir build --output-on-failure
+      ctest --test-dir build --output-on-failure --timeout 120
 
  # ============================================================================
  # Build and Test - Linux (Clang)
@@ -99,8 +101,9 @@ jobs:
       cmake --build build -j
 
    - name: Run Tests
+     timeout-minutes: 10
      run: |
-      ctest --test-dir build --output-on-failure
+      ctest --test-dir build --output-on-failure --timeout 120
 
  # ============================================================================
  # Code Quality - Format Check
