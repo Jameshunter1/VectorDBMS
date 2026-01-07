@@ -46,6 +46,7 @@ class HNSWIndex;
 class Engine {
  public:
   Engine();
+  ~Engine();
 
   // Opens (or creates) a database at the given path (embedded mode).
   Status Open(std::filesystem::path db_path);
@@ -141,12 +142,44 @@ class Engine {
   // Get all entries (for viewing).
   std::vector<std::pair<std::string, std::string>> GetAllEntries() const;
 
+  // ====== Group Commit Optimization (v1.5) ======
+
+  // Begin a batch of writes. Multiple Put/Delete operations will share the same
+  // transaction and delay fsync until EndBatch() or Flush() is called.
+  // This dramatically improves bulk write performance by reducing disk sync overhead.
+  //
+  // Example:
+  //   engine.BeginBatch();
+  //   for (int i = 0; i < 10000; i++) {
+  //     engine.Put("key" + std::to_string(i), "value");
+  //   }
+  //   engine.EndBatch();  // Single fsync for all 10000 writes
+  void BeginBatch();
+
+  // End the current batch and flush all buffered writes to disk.
+  // Returns Status indicating whether the batch was successfully committed.
+  Status EndBatch();
+
+  // Explicitly flush all buffered writes to disk without ending the batch.
+  // Useful for checkpointing during long-running batch operations.
+  Status Flush();
+
+  // Check if currently in batch mode.
+  bool InBatchMode() const {
+    return batch_mode_;
+  }
+
  private:
    std::unique_ptr<DiskManager> disk_manager_;              // Page-level I/O (Year 1 Q1)
    std::unique_ptr<BufferPoolManager> buffer_pool_manager_; // Page cache with LRU-K (Year 1 Q3)
    std::unique_ptr<LogManager> log_manager_;                // Write-Ahead Log (Year 1 Q4)
    bool is_open_ = false;
    TxnId next_txn_id_ = 1; // Transaction ID counter for WAL
+
+   // Group commit optimization
+   bool batch_mode_ = false; // Whether we're in batch mode
+   TxnId batch_txn_id_ = 0;  // Shared transaction ID for current batch
+   LSN batch_begin_lsn_ = 0; // Begin LSN for current batch transaction
 
    // Vector database components
    std::unique_ptr<vector::HNSWIndex> vector_index_; // HNSW index for similarity search

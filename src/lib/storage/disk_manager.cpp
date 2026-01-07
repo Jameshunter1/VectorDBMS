@@ -219,7 +219,7 @@ PageId DiskManager::AllocatePage() {
   
   // Page 0 is reserved, so first valid page is 1
   // New pages are appended to the end of the file
-  const PageId new_page_id = (num_pages_ == 0) ? 1 : num_pages_ + 1;
+  const PageId new_page_id = num_pages_ + 1;
 
   // Grow file by one page
   // Seek to end and write a zero page
@@ -242,8 +242,8 @@ PageId DiskManager::AllocatePage() {
     return kInvalidPageId;
   }
 
-  // Update num_pages_ to include the newly allocated page
-  num_pages_ = new_page_id + 1;
+  // Update num_pages_ to reflect the new highest page
+  num_pages_ = new_page_id;
   ++stats_.total_allocations;
   
   return new_page_id;
@@ -251,11 +251,11 @@ PageId DiskManager::AllocatePage() {
 
 Status DiskManager::Sync() {
   std::lock_guard<std::mutex> lock(mutex_);
-  
-  if (!is_open_) {
+
+  if (!is_open_ || !file_handle_) {
     return Status::Internal("DiskManager not open");
   }
-  
+
   // Flush stdio buffers
   if (std::fflush(file_handle_) != 0) {
     return Status::IoError("fflush failed");
@@ -264,6 +264,9 @@ Status DiskManager::Sync() {
 #ifdef _WIN32
   // Windows: FlushFileBuffers to ensure data is on disk
   const int fd = _fileno(file_handle_);
+  if (fd < 0) {
+    return Status::IoError("Invalid file descriptor");
+  }
   HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
   if (handle == INVALID_HANDLE_VALUE) {
     return Status::IoError("Failed to get file handle");
@@ -274,6 +277,9 @@ Status DiskManager::Sync() {
 #else
   // POSIX: fsync to ensure data is on disk
   const int fd = fileno(file_handle_);
+  if (fd < 0) {
+    return Status::IoError("Invalid file descriptor");
+  }
   if (fsync(fd) != 0) {
     return Status::IoError("fsync failed");
   }
@@ -292,12 +298,12 @@ bool DiskManager::IsValidPageId(PageId page_id) const {
   if (page_id == kInvalidPageId) {
     return false;
   }
-  
-  // Page must be within file bounds
-  if (page_id >= num_pages_) {
+
+  // Page must be within file bounds (page_id 1 to num_pages_ inclusive)
+  if (page_id > num_pages_) {
     return false;
   }
-  
+
   return true;
 }
 

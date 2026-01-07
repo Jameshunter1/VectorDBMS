@@ -214,9 +214,13 @@ perf.data.old
 core
 core.*
 
-# Project-specific
+# Project-specific (runtime data directories, not source code)
 database/
-storage/
+/storage/
+/_data/
 wal/
 sst/
 manifest/
+
+# But DO track source code in lib/storage/
+!lib/storage/

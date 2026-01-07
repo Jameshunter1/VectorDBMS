@@ -19,6 +19,22 @@ namespace core_engine {
 
 Engine::Engine() = default;
 
+Engine::~Engine() {
+  // Explicit destruction order to prevent use-after-free:
+  // 1. Destroy buffer pool first (flushes pages while disk manager is still valid)
+  // 2. Then log manager
+  // 3. Finally disk manager
+  Log(LogLevel::kDebug, "Engine::~Engine() starting");
+  buffer_pool_manager_.reset();
+  Log(LogLevel::kDebug, "BufferPoolManager reset complete");
+  log_manager_.reset();
+  Log(LogLevel::kDebug, "LogManager reset complete");
+  disk_manager_.reset();
+  Log(LogLevel::kDebug, "DiskManager reset complete");
+  vector_index_.reset();
+  Log(LogLevel::kDebug, "Engine::~Engine() complete");
+}
+
 Status Engine::Open(std::filesystem::path db_path) {
   return Open(DatabaseConfig::Embedded(std::move(db_path)));
 }
@@ -101,26 +117,71 @@ Status Engine::Put(std::string key, std::string value) {
   }
 
   // Year 1 Q4: Write-Ahead Logging + BufferPoolManager
+  // v1.5: Group commit optimization - batch operations share transactions
   // 1. Start transaction and log the update
   // 2. Write to buffered page
-  // 3. Commit transaction and force log
+  // 3. Commit transaction (deferred in batch mode)
 
   auto start = std::chrono::high_resolution_clock::now();
 
-  // Allocate transaction ID
-  TxnId txn_id = next_txn_id_++;
+  // Use batch transaction if in batch mode, otherwise create new transaction
+  TxnId txn_id;
+  LSN begin_lsn;
 
-  // Log begin transaction
-  LSN begin_lsn = log_manager_->AppendBeginRecord(txn_id);
+  if (batch_mode_ && batch_txn_id_ > 0) {
+    // Reuse existing batch transaction
+    txn_id = batch_txn_id_;
+    begin_lsn = batch_begin_lsn_;
+  } else {
+    // Create new transaction
+    txn_id = next_txn_id_++;
+    begin_lsn = log_manager_->AppendBeginRecord(txn_id);
+  }
 
-  // Allocate a new page for this key-value pair
+  // First, check if key already exists and reuse that page
+  PageId existing_page_id = 0;
+  for (PageId pid = 1; pid <= disk_manager_->GetNumPages(); ++pid) {
+    auto check_page = buffer_pool_manager_->FetchPage(pid);
+    if (!check_page)
+      continue;
+
+    const char* data = check_page->GetData();
+    std::size_t offset = 0;
+    if (offset + sizeof(uint32_t) <= kPageSize) {
+      uint32_t stored_key_size;
+      std::memcpy(&stored_key_size, data + offset, sizeof(uint32_t));
+      offset += sizeof(uint32_t);
+
+      if (offset + stored_key_size <= kPageSize) {
+        std::string stored_key(data + offset, stored_key_size);
+        if (stored_key == key) {
+          existing_page_id = pid;
+          buffer_pool_manager_->UnpinPage(pid, false);
+          break;
+        }
+      }
+    }
+    buffer_pool_manager_->UnpinPage(pid, false);
+  }
+
+  // Allocate or reuse page
   PageId page_id_out;
-  auto page = buffer_pool_manager_->NewPage(&page_id_out);
-  if (!page) {
-    // Log abort on failure
-    log_manager_->AppendAbortRecord(txn_id, begin_lsn);
-    log_manager_->ForceFlush();
-    return Status::Internal("Failed to allocate page from buffer pool");
+  Page* page;
+  if (existing_page_id > 0) {
+    page_id_out = existing_page_id;
+    page = buffer_pool_manager_->FetchPage(page_id_out);
+    if (!page) {
+      log_manager_->AppendAbortRecord(txn_id, begin_lsn);
+      log_manager_->ForceFlush();
+      return Status::Internal("Failed to fetch existing page from buffer pool");
+    }
+  } else {
+    page = buffer_pool_manager_->NewPage(&page_id_out);
+    if (!page) {
+      log_manager_->AppendAbortRecord(txn_id, begin_lsn);
+      log_manager_->ForceFlush();
+      return Status::Internal("Failed to allocate page from buffer pool");
+    }
   }
 
   // Write key-value to page (simplified format for Q3/Q4)
@@ -151,9 +212,16 @@ Status Engine::Put(std::string key, std::string value) {
   // Mark page as dirty and unpin
   buffer_pool_manager_->UnpinPage(page->GetPageId(), true);
 
-  // Log commit and force to disk (durability)
-  LSN commit_lsn = log_manager_->AppendCommitRecord(txn_id, update_lsn);
-  log_manager_->ForceFlush();
+  // Log commit and force to disk (deferred in batch mode)
+  LSN commit_lsn;
+  if (!batch_mode_) {
+    // Normal mode: commit immediately with fsync
+    commit_lsn = log_manager_->AppendCommitRecord(txn_id, update_lsn);
+    log_manager_->ForceFlush();
+  } else {
+    // Batch mode: defer commit until EndBatch()
+    commit_lsn = update_lsn; // No commit record yet
+  }
 
   auto end = std::chrono::high_resolution_clock::now();
   total_put_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
@@ -177,8 +245,9 @@ std::optional<std::string> Engine::Get(std::string key) {
   auto start = std::chrono::high_resolution_clock::now();
 
   // Scan through all pages looking for the key
+  // Page 0 is reserved, start from page 1
   std::size_t num_pages = disk_manager_->GetNumPages();
-  for (PageId page_id = 0; page_id < num_pages; ++page_id) {
+  for (PageId page_id = 1; page_id <= num_pages; ++page_id) {
     auto page = buffer_pool_manager_->FetchPage(page_id);
     if (!page) {
       continue; // Page not available, skip
@@ -206,7 +275,7 @@ std::optional<std::string> Engine::Get(std::string key) {
     offset += key_size;
 
     if (stored_key == key) {
-      // Found the key, read the value
+      // Found the key, check if it's deleted (tombstone)
       if (offset + sizeof(uint32_t) > kPageSize) {
         buffer_pool_manager_->UnpinPage(page_id, false);
         break;
@@ -214,6 +283,18 @@ std::optional<std::string> Engine::Get(std::string key) {
 
       uint32_t value_size;
       std::memcpy(&value_size, data + offset, sizeof(uint32_t));
+
+      // Check for tombstone marker
+      if (value_size == UINT32_MAX) {
+        buffer_pool_manager_->UnpinPage(page_id, false);
+        auto end = std::chrono::high_resolution_clock::now();
+        total_get_time_us_ += std::chrono::duration<double, std::micro>(end - start).count();
+        ++total_gets_;
+        Log(LogLevel::kDebug,
+            "Get: " + key + " (found tombstone on page_id=" + std::to_string(page_id) + ")");
+        return std::nullopt; // Key was deleted
+      }
+
       offset += sizeof(uint32_t);
 
       if (offset + value_size > kPageSize) {
@@ -248,15 +329,64 @@ Status Engine::Delete(std::string key) {
     return Status::Internal("Engine is not open");
   }
 
-  // Year 1 Q2: Mark page as deleted (simple tombstone approach)
-  // Future Q3: Proper deletion with page reclamation
-  Log(LogLevel::kDebug, "Delete: " + key + " (tombstone not yet implemented)");
-  return Status::Ok();
+  // Search for the key in all allocated pages
+  for (PageId page_id = 1; page_id <= disk_manager_->GetNumPages(); ++page_id) {
+    auto page = buffer_pool_manager_->FetchPage(page_id);
+    if (!page) {
+      continue; // Page not available
+    }
+
+    // Parse key from page
+    const char* data = page->GetData();
+    std::size_t offset = 0;
+
+    if (offset + sizeof(uint32_t) > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    uint32_t key_size;
+    std::memcpy(&key_size, data + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    if (offset + key_size > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    std::string stored_key(data + offset, key_size);
+
+    if (stored_key == key) {
+      // Found the key - mark as deleted by setting value_size to UINT32_MAX (tombstone)
+      offset += key_size;
+
+      // Overwrite value_size with tombstone marker
+      uint32_t tombstone = UINT32_MAX;
+      char* write_data = page->GetData();
+      std::memcpy(write_data + offset, &tombstone, sizeof(uint32_t));
+
+      page->MarkDirty();
+      page->UpdateChecksum();
+      buffer_pool_manager_->UnpinPage(page_id, true);
+
+      Log(LogLevel::kDebug,
+          "Delete: " + key + " (marked with tombstone on page_id=" + std::to_string(page_id) + ")");
+      return Status::Ok();
+    }
+
+    buffer_pool_manager_->UnpinPage(page_id, false);
+  }
+
+  Log(LogLevel::kDebug, "Delete: " + key + " (key not found)");
+  return Status::Ok(); // Deleting non-existent key is OK
 }
 
 Status Engine::BatchWrite(const std::vector<BatchOperation>& operations) {
+  // Use group commit optimization for batch operations
+  BeginBatch();
+
   for (const auto& op : operations) {
-    Status status = Status::Ok(); // Initialize with Ok status
+    Status status = Status::Ok();
     if (op.type == BatchOperation::Type::PUT) {
       status = Put(op.key, op.value);
     } else {
@@ -264,10 +394,12 @@ Status Engine::BatchWrite(const std::vector<BatchOperation>& operations) {
     }
 
     if (!status.ok()) {
+      EndBatch(); // Flush partial batch on error
       return status;
     }
   }
-  return Status::Ok();
+
+  return EndBatch(); // Single commit for all operations
 }
 
 std::vector<std::optional<std::string>> Engine::BatchGet(const std::vector<std::string>& keys) {
@@ -283,8 +415,91 @@ std::vector<std::optional<std::string>> Engine::BatchGet(const std::vector<std::
 
 std::vector<std::pair<std::string, std::string>> 
 Engine::Scan(const std::string& start_key, const std::string& end_key, const ScanOptions& options) {
-  // Year 1 Q1: Placeholder
-  return {};
+  std::vector<std::pair<std::string, std::string>> results;
+
+  if (!is_open_) {
+    return results;
+  }
+
+  // Collect all key-value pairs from pages
+  std::vector<std::pair<std::string, std::string>> all_kvs;
+
+  for (PageId page_id = 1; page_id <= disk_manager_->GetNumPages(); ++page_id) {
+    auto page = buffer_pool_manager_->FetchPage(page_id);
+    if (!page)
+      continue;
+
+    const char* data = page->GetData();
+    std::size_t offset = 0;
+
+    // Parse key-value
+    if (offset + sizeof(uint32_t) > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    uint32_t key_size;
+    std::memcpy(&key_size, data + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+
+    if (offset + key_size > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    std::string key(data + offset, key_size);
+    offset += key_size;
+
+    if (offset + sizeof(uint32_t) > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    uint32_t value_size;
+    std::memcpy(&value_size, data + offset, sizeof(uint32_t));
+
+    // Skip tombstones
+    if (value_size == UINT32_MAX) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    offset += sizeof(uint32_t);
+
+    if (offset + value_size > kPageSize) {
+      buffer_pool_manager_->UnpinPage(page_id, false);
+      continue;
+    }
+
+    std::string value(data + offset, value_size);
+
+    // Check if key is in range [start_key, end_key)
+    if (key >= start_key && key < end_key) {
+      if (options.keys_only) {
+        all_kvs.emplace_back(key, "");
+      } else {
+        all_kvs.emplace_back(key, value);
+      }
+    }
+
+    buffer_pool_manager_->UnpinPage(page_id, false);
+  }
+
+  // Sort by key
+  std::sort(all_kvs.begin(), all_kvs.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+
+  // Apply reverse if needed
+  if (options.reverse) {
+    std::reverse(all_kvs.begin(), all_kvs.end());
+  }
+
+  // Apply limit
+  if (options.limit > 0 && all_kvs.size() > options.limit) {
+    all_kvs.resize(options.limit);
+  }
+
+  return all_kvs;
 }
 
 Status Engine::Execute(std::string_view statement) {
@@ -413,6 +628,55 @@ Engine::VectorStats Engine::GetVectorStats() const {
   stats.avg_connections_per_node = hnsw_stats.avg_connections_per_node;
 
   return stats;
+}
+
+// ============================================================================
+// Group Commit Implementation (v1.5)
+// ============================================================================
+
+void Engine::BeginBatch() {
+  if (batch_mode_) {
+    // Already in batch mode, ignore
+    return;
+  }
+
+  batch_mode_ = true;
+  batch_txn_id_ = next_txn_id_++;
+  batch_begin_lsn_ = log_manager_->AppendBeginRecord(batch_txn_id_);
+
+  Log(LogLevel::kDebug, "Batch started (txn=" + std::to_string(batch_txn_id_) +
+                            ", lsn=" + std::to_string(batch_begin_lsn_) + ")");
+}
+
+Status Engine::EndBatch() {
+  if (!batch_mode_) {
+    return Status::Ok(); // Not in batch mode, nothing to do
+  }
+
+  // Commit the batch transaction
+  LSN commit_lsn = log_manager_->AppendCommitRecord(batch_txn_id_, batch_begin_lsn_);
+
+  // Force log to disk (this is the expensive operation we batched)
+  auto status = log_manager_->ForceFlush();
+
+  // Reset batch state
+  batch_mode_ = false;
+  batch_txn_id_ = 0;
+  batch_begin_lsn_ = 0;
+
+  Log(LogLevel::kDebug, "Batch committed (lsn=" + std::to_string(commit_lsn) + ")");
+
+  return status;
+}
+
+Status Engine::Flush() {
+  if (!batch_mode_) {
+    // Not in batch mode, nothing buffered to flush
+    return Status::Ok();
+  }
+
+  // Flush log without ending batch
+  return log_manager_->ForceFlush();
 }
 
 }  // namespace core_engine
