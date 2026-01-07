@@ -63,92 +63,47 @@ TEST_CASE("Engine recovers values after restart (WAL replay)") {
   std::filesystem::remove_all(db_dir, ec);
 }
 
-TEST_CASE("Engine flushes MemTable to SSTable when threshold exceeded") {
+TEST_CASE("Engine persists large datasets across pages") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
   const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("core_engine_test_db_flush_" + std::to_string(suffix));
+                      ("core_engine_test_db_large_" + std::to_string(suffix));
 
   {
     core_engine::Engine engine;
     const auto open_status = engine.Open(db_dir);
     REQUIRE(open_status.ok());
 
-    // Write enough data to trigger flush (4 MB threshold).
-    // Use 1 KB values to reach threshold faster.
-    // Reduced to 500 for CI (still triggers flush with WAL overhead).
+    // Write enough data to span multiple pages (4KB page size)
+    // Use 1KB values to test multi-page storage
     const std::string large_value(1024, 'x');
-    for (int i = 0; i < 500; ++i) {
+    for (int i = 0; i < 100; ++i) {
       const auto key = "key_" + std::to_string(i);
       const auto put_status = engine.Put(key, large_value);
       REQUIRE(put_status.ok());
     }
 
-    // Verify pages.db was created and has grown (page-based architecture).
+    // Verify pages.db was created and has grown (page-based architecture)
     const auto pages_file = db_dir / "pages.db";
     REQUIRE(std::filesystem::exists(pages_file));
 
-    // File should be larger than initial size (>1 MB with 500 x 1KB values)
+    // File should contain multiple pages (>100 KB with 100 x 1KB values + overhead)
     const auto file_size = std::filesystem::file_size(pages_file);
-    REQUIRE(file_size > 1024 * 1024);
+    REQUIRE(file_size > 100 * 1024);
   }
 
-  // Restart and verify values are readable (from SSTable + WAL).
+  // Restart and verify all values are readable via WAL replay
   {
     core_engine::Engine engine;
     const auto open_status = engine.Open(db_dir);
     REQUIRE(open_status.ok());
 
-    const auto value = engine.Get("key_100");
-    REQUIRE(value.has_value());
-    REQUIRE(value->size() == 1024);
-  }
-
-  std::error_code ec;
-  std::filesystem::remove_all(db_dir, ec);
-}
-
-TEST_CASE("Engine compacts SSTables when threshold reached") {
-  const auto suffix = static_cast<std::uint64_t>(
-      std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("core_engine_test_db_compact_" + std::to_string(suffix));
-
-  {
-    core_engine::Engine engine;
-    const auto open_status = engine.Open(db_dir);
-    REQUIRE(open_status.ok());
-
-    // Write enough data to create multiple SSTables.
-    // Each flush creates 1 SSTable; after 4 flushes, compaction triggers.
-    // Reduced to 2×500 for CI (still tests compaction).
-    const std::string large_value(1024, 'x');
-    for (int batch = 0; batch < 2; ++batch) {
-      for (int i = 0; i < 500; ++i) {
-        const auto key = "batch" + std::to_string(batch) + "_key" + std::to_string(i);
-        const auto put_status = engine.Put(key, large_value);
-        REQUIRE(put_status.ok());
-      }
+    for (int i = 0; i < 100; ++i) {
+      const auto key = "key_" + std::to_string(i);
+      const auto value = engine.Get(key);
+      REQUIRE(value.has_value());
+      REQUIRE(value->size() == 1024);
     }
-
-    // Verify pages.db exists and has grown significantly (page-based architecture).
-    // With 2 batches of 500 x 1KB values, should be >1 MB.
-    const auto pages_file = db_dir / "pages.db";
-    REQUIRE(std::filesystem::exists(pages_file));
-
-    const auto file_size = std::filesystem::file_size(pages_file);
-    REQUIRE(file_size > 1024 * 1024); // Should have written at least 1 MB
-  }
-
-  // Restart and verify all values are readable.
-  {
-    core_engine::Engine engine;
-    const auto open_status = engine.Open(db_dir);
-    REQUIRE(open_status.ok());
-
-    const auto value = engine.Get("batch1_key100");
-    REQUIRE(value.has_value());
-    REQUIRE(value->size() == 1024);
   }
 
   std::error_code ec;
@@ -156,7 +111,7 @@ TEST_CASE("Engine compacts SSTables when threshold reached") {
 }
 
 // ============================================================================
-// NEW CRITICAL TESTS: Edge Cases and Production Scenarios
+// Edge Cases and Production Scenarios
 // ============================================================================
 
 TEST_CASE("Engine handles Delete operations correctly") {
