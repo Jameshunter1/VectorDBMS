@@ -175,7 +175,7 @@ bool BufferPoolManager::FlushAllPages() {
 
   // Check if disk manager is still open (defensive check for shutdown)
   if (!disk_manager_ || !disk_manager_->IsOpen()) {
-    Log(LogLevel::kWarn, "Cannot flush pages: DiskManager not open");
+    Log(LogLevel::kDebug, "Cannot flush pages: DiskManager not open");
     return true; // Return true to avoid error logging during clean shutdown
   }
 
