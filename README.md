@@ -21,15 +21,18 @@ cmake --build build/windows-vs2022-x64-debug --config Debug
 
 # Local build - Linux/macOS
 git clone https://github.com/Jameshunter1/VectorDBMS.git && cd VectorDBMS
-cmake -B build -S src -DCMAKE_BUILD_TYPE=Debug
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
 ./build/dbcli
 ```
+
+> **Note (Linux)**: Install `liburing-dev` to enable the asynchronous disk pipeline. Disable it via `-DCORE_ENGINE_ENABLE_IO_URING=OFF` if building on distributions without liburing.
 
 ## Features
 
  **Page-based storage** with WAL recovery  
  **LRU-K buffer pool** with O(log N) eviction  
+ **io_uring disk I/O** with batched read/write pipelines (Linux)  
  **HNSW vector index** for similarity search  
  **Batch operations** and range scans  
  **Prometheus metrics** + Grafana dashboards  
@@ -39,9 +42,9 @@ cmake --build build -j
 
 | Operation | Throughput | Latency |
 |-----------|------------|---------|
-| PUT | 180K/sec | 5.2 �s |
-| GET (cached) | 850K/sec | 1.1 �s |
-| Vector Search | 12K/sec | 78 �s |
+| PUT | 180K/sec | 5.2 us |
+| GET (cached) | 850K/sec | 1.1 us |
+| Vector Search | 12K/sec | 78 us |
 
 ## API
 
@@ -69,10 +72,13 @@ auto value = engine.Get("key");
 ## Architecture
 
 **Year 1 Complete** (2025):
-- Disk & Page Layer  Buffer Pool  LRU-K  WAL  HNSW  Metrics
+- Disk & Page Layer · Buffer Pool · LRU-K · WAL · HNSW · Metrics
+
+**Year 2 (2026)**:
+- ✅ Q1: Linux io_uring batch I/O + DiskManager batching APIs
+- 🔜 Q2: Zero-copy buffer registration & IOCP parity on Windows
 
 **Roadmap**:
-- **2026**: io_uring/IOCP async I/O
 - **2027**: Multi-node replication
 - **2028**: Managed SaaS
 

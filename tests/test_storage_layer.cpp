@@ -7,7 +7,10 @@
 #include <core_engine/storage/page.hpp>
 
 #include <chrono>
+#include <cstring>
 #include <filesystem>
+#include <string>
+#include <vector>
 
 using namespace core_engine;
 
@@ -134,6 +137,52 @@ TEST_CASE("Storage Layer: DiskManager", "[storage][disk]") {
     REQUIRE(read_page.GetLSN() == 1000);
     REQUIRE(std::memcmp(read_page.GetData(), "Hello, World!", 13) == 0);
     REQUIRE(read_page.VerifyChecksum());
+
+    dm.Close();
+  }
+
+  SECTION("Batch read/write operations") {
+    DiskManager dm(db_dir / "batch.db");
+    REQUIRE(dm.Open().ok());
+
+    constexpr int kBatchSize = 4;
+    std::vector<PageId> page_ids;
+    page_ids.reserve(kBatchSize);
+    for (int i = 0; i < kBatchSize; ++i) {
+      page_ids.push_back(dm.AllocatePage());
+    }
+
+    std::vector<std::string> payloads;
+    payloads.reserve(kBatchSize);
+    std::vector<Page> write_pages(kBatchSize);
+    std::vector<DiskManager::PageWriteRequest> write_requests;
+    write_requests.reserve(kBatchSize);
+
+    for (int i = 0; i < kBatchSize; ++i) {
+      payloads.emplace_back("payload-" + std::to_string(i));
+      write_pages[i].SetPageId(page_ids[i]);
+      write_pages[i].SetLSN(200 + i);
+      std::memcpy(write_pages[i].GetData(), payloads[i].data(), payloads[i].size());
+      write_pages[i].UpdateChecksum();
+      write_requests.push_back({page_ids[i], &write_pages[i]});
+    }
+
+    REQUIRE(dm.WritePagesBatch(write_requests).ok());
+
+    std::vector<Page> read_pages(kBatchSize);
+    std::vector<DiskManager::PageReadRequest> read_requests;
+    read_requests.reserve(kBatchSize);
+    for (int i = 0; i < kBatchSize; ++i) {
+      read_requests.push_back({page_ids[i], &read_pages[i]});
+    }
+
+    REQUIRE(dm.ReadPagesBatch(read_requests).ok());
+
+    for (int i = 0; i < kBatchSize; ++i) {
+      REQUIRE(read_pages[i].GetPageId() == page_ids[i]);
+      REQUIRE(read_pages[i].VerifyChecksum());
+      REQUIRE(std::memcmp(read_pages[i].GetData(), payloads[i].data(), payloads[i].size()) == 0);
+    }
 
     dm.Close();
   }

@@ -17,9 +17,17 @@
 #include <core_engine/common/status.hpp>
 #include <core_engine/storage/page.hpp>
 
+#include <array>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <mutex>
+#include <span>
+#include <vector>
+
+#if defined(CORE_ENGINE_HAS_IO_URING)
+#include <liburing.h>
+#endif
 
 namespace core_engine {
 
@@ -42,8 +50,28 @@ namespace core_engine {
 // - Future: lock-free queues, io_uring batch submission (Year 2)
 class DiskManager {
 public:
+  struct Options {
+#if defined(CORE_ENGINE_HAS_IO_URING)
+    bool enable_io_uring = true;
+    std::uint32_t io_uring_queue_depth = 64;
+#else
+    bool enable_io_uring = false;
+    std::uint32_t io_uring_queue_depth = 0;
+#endif
+  };
+
+  struct PageReadRequest {
+    PageId page_id;
+    Page* page;
+  };
+
+  struct PageWriteRequest {
+    PageId page_id;
+    const Page* page;
+  };
+
   // Create DiskManager for a specific database file
-  explicit DiskManager(std::filesystem::path db_file);
+  explicit DiskManager(std::filesystem::path db_file, Options options = {});
   ~DiskManager();
 
   // Disable copy (manages OS file handle)
@@ -77,6 +105,10 @@ public:
   // - LSN is consistent
   Status ReadPage(PageId page_id, Page* page);
 
+  // Batch read multiple pages. On Linux, requests are issued through io_uring
+  // when enabled; other platforms fall back to sequential reads.
+  Status ReadPagesBatch(std::span<PageReadRequest> requests);
+
   // Write a page from memory to disk
   // page_id: Which page to write (0-indexed)
   // page: Source buffer (must be 4 KB aligned, checksum updated)
@@ -90,6 +122,9 @@ public:
   // - Single 4 KB write is atomic on modern hardware
   // - Torn page detection via checksum + LSN
   Status WritePage(PageId page_id, const Page* page);
+
+  // Batch write multiple pages leveraging io_uring when available.
+  Status WritePagesBatch(std::span<PageWriteRequest> requests);
 
   // Allocate a new page (grows the file)
   // Returns: PageId of the newly allocated page
@@ -129,10 +164,43 @@ private:
   // Helper: Convert page_id to byte offset in file
   std::int64_t PageIdToOffset(PageId page_id) const;
 
+  Status PerformSingleReadLocked(PageId page_id, Page* page);
+  Status PerformSingleWriteLocked(PageId page_id, const Page* page);
+  Status ProcessReadRequestsLocked(std::span<PageReadRequest> requests);
+  Status ProcessWriteRequestsLocked(std::span<PageWriteRequest> requests);
+  Status ValidateReadResult(PageId page_id, Page* page);
+
+#if defined(CORE_ENGINE_HAS_IO_URING)
+  struct IoTask {
+    enum class Type { kRead, kWrite };
+    Type type;
+    PageId page_id;
+    Page* read_page;
+    const Page* write_page;
+  };
+
+  Status InitializeIoUringLocked();
+  void ShutdownIoUringLocked();
+  Status SubmitIoTasksLocked(std::span<IoTask> tasks);
+#else
+  Status InitializeIoUringLocked() {
+    return Status::Ok();
+  }
+  void ShutdownIoUringLocked() {}
+#endif
+
   std::filesystem::path db_file_; // Path to database file
   FILE* file_handle_;             // OS file handle (using C stdio for simplicity)
   bool is_open_;                  // Is file currently open?
   PageId num_pages_;              // Current number of pages in file
+  Options options_;
+  int file_descriptor_;
+
+#if defined(CORE_ENGINE_HAS_IO_URING)
+  bool io_uring_initialized_;
+  std::uint32_t io_uring_queue_depth_;
+  io_uring io_ring_;
+#endif
 
   mutable std::mutex mutex_; // Coarse-grained lock for thread safety
   Stats stats_;              // I/O statistics

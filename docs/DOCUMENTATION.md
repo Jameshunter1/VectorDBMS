@@ -342,6 +342,14 @@ cmake -DCMAKE_CXX_FLAGS="-march=native -O3"
 - No GPU acceleration (CPU-only HNSW)
 - No query optimizer (simple sequential scans)
 
+### Year 2: Async Disk Pipeline (Q1 2026)
+
+- Linux builds now default to an io_uring-backed DiskManager when `liburing` is available.
+- `DiskManager::ReadPagesBatch()` and `WritePagesBatch()` expose batched APIs used by buffer pool redo/flush paths.
+- The io_uring queue depth is configurable via CMake option `-DCORE_ENGINE_ENABLE_IO_URING=ON|OFF` and `DiskManager::Options::io_uring_queue_depth`.
+- Falls back to the portable synchronous path automatically on Windows/macOS or when `liburing` is missing.
+- Tests cover batch semantics to guarantee identical correctness regardless of the backend.
+
 ---
 
 ## Security
@@ -474,8 +482,8 @@ Copyright (c) 2026 James Hunter & Contributors
 ## Project Status
 
 **Current Version**: 1.5 (January 2026)  
-**Status**: Production-ready (Year 1 complete)  
-**Next Milestone**: Year 2 - io_uring/IOCP async I/O
+**Status**: Year 2 in progress (Linux io_uring disk pipeline shipped)  
+**Next Milestone**: Year 2 Q2 - zero-copy buffer registration & IOCP parity
 
 ### Completed Milestones
 
@@ -486,10 +494,11 @@ Copyright (c) 2026 James Hunter & Contributors
 ✅ **Q4 2025**: HNSW Vector Index  
 ✅ **Q1 2026**: Batch Operations & Metrics  
 ✅ **Q1 2026**: Docker Deployment & Monitoring  
+✅ **Q1 2026**: Linux io_uring batched disk I/O
 
 ### Roadmap
 
-- **2026 Q2**: io_uring (Linux) and IOCP (Windows) async I/O
+- **2026 Q2**: Zero-copy buffer registration (io_uring fixed buffers + IOCP prototype)
 - **2026 Q3**: Custom network protocol with connection pooling
 - **2026 Q4**: Product quantization for vector compression
 - **2027**: Multi-node replication and sharding

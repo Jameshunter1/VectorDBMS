@@ -228,7 +228,7 @@ httplib::Client client("127.0.0.1", port);
 
 **Version**: 1.5 (January 2026)  
 **Year 1**: COMPLETE ✅ (Page Layer, BufferPool, LRU-K, WAL, HNSW, Metrics)  
-**Next**: Year 2 - io_uring/IOCP async I/O
+**Next**: Year 2 Q2 - zero-copy buffer registration & IOCP parity
 
 **Performance Baseline**:
 - PUT: 180K ops/sec, 5.2 μs latency

@@ -26,6 +26,7 @@ option(CORE_ENGINE_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(CORE_ENGINE_BUILD_WEB "Build web server (dbweb)" ON)
 option(CORE_ENGINE_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 option(CORE_ENGINE_ENABLE_SANITIZERS "Enable sanitizer flags (Clang/GCC)" OFF)
+option(CORE_ENGINE_ENABLE_IO_URING "Enable io_uring-based disk I/O on Linux" ON)
 
 # ---- CMake modules ----------------------------------------------------------
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
@@ -65,6 +66,34 @@ target_sources(core_engine
     src/lib/vector/vector.cpp
     src/lib/vector/hnsw_index.cpp
 )
+
+if(CORE_ENGINE_ENABLE_IO_URING AND UNIX AND NOT APPLE)
+  find_package(PkgConfig QUIET)
+  set(CORE_ENGINE_HAS_IO_URING FALSE)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(LIBURING QUIET liburing)
+    if(LIBURING_FOUND)
+      target_link_libraries(core_engine PRIVATE PkgConfig::LIBURING)
+      target_compile_definitions(core_engine PRIVATE CORE_ENGINE_HAS_IO_URING=1)
+      set(CORE_ENGINE_HAS_IO_URING TRUE)
+    endif()
+  endif()
+
+  if(NOT CORE_ENGINE_HAS_IO_URING)
+    find_path(LIBURING_INCLUDE_DIR liburing.h)
+    find_library(LIBURING_LIBRARY uring)
+    if(LIBURING_INCLUDE_DIR AND LIBURING_LIBRARY)
+      target_include_directories(core_engine PRIVATE ${LIBURING_INCLUDE_DIR})
+      target_link_libraries(core_engine PRIVATE ${LIBURING_LIBRARY})
+      target_compile_definitions(core_engine PRIVATE CORE_ENGINE_HAS_IO_URING=1)
+      set(CORE_ENGINE_HAS_IO_URING TRUE)
+    endif()
+  endif()
+
+  if(NOT CORE_ENGINE_HAS_IO_URING)
+    message(WARNING "liburing not found; io_uring acceleration disabled")
+  endif()
+endif()
 
 target_compile_features(core_engine PUBLIC cxx_std_20)
 
