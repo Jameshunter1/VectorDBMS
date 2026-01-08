@@ -620,20 +620,26 @@ Status DiskManager::RegisterFixedBuffersLocked(std::span<Page> buffers) {
     return Status::Internal("io_uring not initialized");
   }
 
+  // Validate 4KB page alignment requirement for io_uring fixed buffers
+  if (reinterpret_cast<std::uintptr_t>(buffers.data()) % 4096 != 0) {
+    return Status::InvalidArgument("Buffers must be 4KB-aligned for io_uring fixed buffers");
+  }
+
   // Create iovec array for registration
   std::vector<iovec> iovecs;
   iovecs.reserve(buffers.size());
 
-  for (auto& page : buffers) {
+  for (const auto& page : buffers) {
     iovec iov;
-    iov.iov_base = page.GetRawPage();
+    iov.iov_base = const_cast<char*>(page.GetRawPage());
     iov.iov_len = kPageSize;
     iovecs.push_back(iov);
   }
 
-  // Register buffers with io_uring
+  // Register buffers with io_uring (atomic operation - all-or-nothing)
   const int ret = io_uring_register_buffers(&io_ring_, iovecs.data(), iovecs.size());
   if (ret < 0) {
+    // io_uring_register_buffers is atomic; no partial registration occurs
     return Status::IoError(std::string("io_uring_register_buffers failed: ") + std::strerror(-ret));
   }
 

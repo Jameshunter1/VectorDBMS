@@ -392,9 +392,11 @@ if (status.ok()) {
 - Other platforms: Gracefully falls back to standard I/O
 
 **Performance Impact**:
-- NVMe read latency: 38 µs → 35 µs (8% reduction)
-- NVMe write latency: 5.2 µs → 3.0 µs (42% reduction)
-- Batch operations: 2-5% throughput improvement
+
+_The following figures are projected improvements based on theoretical analysis and microbenchmarks; actual results will vary by hardware, workload, and configuration._
+- NVMe read latency: 38 µs → 35 µs (≈8% projected reduction)
+- NVMe write latency: 5.2 µs → 3.0 µs (≈42% projected reduction)
+- Batch operations: 2-5% projected throughput improvement
 
 ---
 

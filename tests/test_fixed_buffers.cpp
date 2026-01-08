@@ -10,7 +10,7 @@
 
 using namespace core_engine;
 
-TEST_CASE("Fixed Buffers: Registration and Unregistration", "[storage][fixed_buffers][.]") {
+TEST_CASE("Fixed Buffers: Registration and Unregistration", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
   const auto db_dir = std::filesystem::temp_directory_path() /
@@ -93,7 +93,7 @@ TEST_CASE("Fixed Buffers: Registration and Unregistration", "[storage][fixed_buf
   std::filesystem::remove_all(db_dir);
 }
 
-TEST_CASE("Fixed Buffers: BufferPoolManager Integration", "[storage][fixed_buffers][.]") {
+TEST_CASE("Fixed Buffers: BufferPoolManager Integration", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
   const auto db_dir = std::filesystem::temp_directory_path() /
@@ -151,7 +151,7 @@ TEST_CASE("Fixed Buffers: BufferPoolManager Integration", "[storage][fixed_buffe
   std::filesystem::remove_all(db_dir);
 }
 
-TEST_CASE("Fixed Buffers: I/O Operations", "[storage][fixed_buffers][.]") {
+TEST_CASE("Fixed Buffers: I/O Operations", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
   const auto db_dir = std::filesystem::temp_directory_path() /
@@ -262,7 +262,7 @@ TEST_CASE("Fixed Buffers: I/O Operations", "[storage][fixed_buffers][.]") {
   std::filesystem::remove_all(db_dir);
 }
 
-TEST_CASE("Fixed Buffers: Fallback to Dynamic Buffers", "[storage][fixed_buffers][.]") {
+TEST_CASE("Fixed Buffers: Fallback to Dynamic Buffers", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
   const auto db_dir = std::filesystem::temp_directory_path() /

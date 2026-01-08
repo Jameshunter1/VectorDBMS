@@ -21,10 +21,14 @@ Engine::Engine() = default;
 
 Engine::~Engine() {
   // Explicit destruction order to prevent use-after-free:
-  // 1. Destroy buffer pool first (flushes pages while disk manager is still valid)
-  // 2. Then log manager
-  // 3. Finally disk manager
+  // 1. Unregister fixed buffers before destroying buffer pool (avoids dangling pointer)
+  // 2. Destroy buffer pool (flushes pages while disk manager is still valid)
+  // 3. Then log manager
+  // 4. Finally disk manager
   Log(LogLevel::kDebug, "Engine::~Engine() starting");
+  if (disk_manager_) {
+    disk_manager_->UnregisterFixedBuffers();
+  }
   buffer_pool_manager_.reset();
   Log(LogLevel::kDebug, "BufferPoolManager reset complete");
   log_manager_.reset();
@@ -59,6 +63,8 @@ Status Engine::Open(const DatabaseConfig& config) {
   auto db_file = config_.data_dir / "pages.db";
   DiskManager::Options disk_options;
   disk_options.register_fixed_buffers = config_.enable_fixed_buffers;
+  // Fixed buffers require io_uring; make this dependency explicit
+  disk_options.enable_io_uring = config_.enable_fixed_buffers;
   disk_manager_ = std::make_unique<DiskManager>(db_file, disk_options);
 
   auto status = disk_manager_->Open();
