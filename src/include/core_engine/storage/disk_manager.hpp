@@ -265,8 +265,8 @@ private:
   std::uint32_t io_uring_queue_depth_;
   io_uring io_ring_;
   bool fixed_buffers_registered_;
-  Page* fixed_buffer_base_;         // Base address of registered buffer region
-  std::size_t fixed_buffer_count_;  // Number of registered buffers
+  Page* fixed_buffer_base_;        // Base address of registered buffer region
+  std::size_t fixed_buffer_count_; // Number of registered buffers
 #endif
 
   mutable std::mutex mutex_; // Coarse-grained lock for thread safety

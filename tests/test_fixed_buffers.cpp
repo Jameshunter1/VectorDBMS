@@ -13,8 +13,8 @@ using namespace core_engine;
 TEST_CASE("Fixed Buffers: Registration and Unregistration", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("test_fixed_buffers_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("test_fixed_buffers_" + std::to_string(suffix));
 
   std::filesystem::create_directories(db_dir);
 
@@ -96,8 +96,8 @@ TEST_CASE("Fixed Buffers: Registration and Unregistration", "[storage][fixed_buf
 TEST_CASE("Fixed Buffers: BufferPoolManager Integration", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("test_bpm_fixed_buffers_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("test_bpm_fixed_buffers_" + std::to_string(suffix));
 
   std::filesystem::create_directories(db_dir);
 
@@ -114,9 +114,8 @@ TEST_CASE("Fixed Buffers: BufferPoolManager Integration", "[storage][fixed_buffe
 
     // All pages should be contiguous in memory
     for (std::size_t i = 1; i < page_span.size(); ++i) {
-      const std::ptrdiff_t diff =
-          reinterpret_cast<const char*>(&page_span[i]) -
-          reinterpret_cast<const char*>(&page_span[i - 1]);
+      const std::ptrdiff_t diff = reinterpret_cast<const char*>(&page_span[i]) -
+                                  reinterpret_cast<const char*>(&page_span[i - 1]);
       REQUIRE(diff == static_cast<std::ptrdiff_t>(sizeof(Page)));
     }
 
@@ -154,8 +153,8 @@ TEST_CASE("Fixed Buffers: BufferPoolManager Integration", "[storage][fixed_buffe
 TEST_CASE("Fixed Buffers: I/O Operations", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("test_fixed_io_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("test_fixed_io_" + std::to_string(suffix));
 
   std::filesystem::create_directories(db_dir);
 
@@ -265,8 +264,8 @@ TEST_CASE("Fixed Buffers: I/O Operations", "[storage][fixed_buffers]") {
 TEST_CASE("Fixed Buffers: Fallback to Dynamic Buffers", "[storage][fixed_buffers]") {
   const auto suffix = static_cast<std::uint64_t>(
       std::chrono::high_resolution_clock::now().time_since_epoch().count());
-  const auto db_dir = std::filesystem::temp_directory_path() /
-                      ("test_fallback_" + std::to_string(suffix));
+  const auto db_dir =
+      std::filesystem::temp_directory_path() / ("test_fallback_" + std::to_string(suffix));
 
   std::filesystem::create_directories(db_dir);
 

@@ -35,7 +35,8 @@ DiskManager::DiskManager(std::filesystem::path db_file, Options options)
 #if defined(CORE_ENGINE_HAS_IO_URING)
       ,
       io_uring_initialized_(false),
-      io_uring_queue_depth_(options_.io_uring_queue_depth == 0 ? 64 : options_.io_uring_queue_depth),
+      io_uring_queue_depth_(options_.io_uring_queue_depth == 0 ? 64
+                                                               : options_.io_uring_queue_depth),
       fixed_buffers_registered_(false), fixed_buffer_base_(nullptr), fixed_buffer_count_(0)
 #endif
 {
@@ -892,7 +893,7 @@ Status DiskManager::SubmitIoTasksLocked(std::span<IoTask> tasks) {
         if (task->buffer_index >= 0 && fixed_buffers_registered_) {
           // Use fixed-buffer read for zero-copy DMA
           io_uring_prep_read_fixed(sqe, file_descriptor_, task->read_page->GetRawPage(), kPageSize,
-                                    offset, task->buffer_index);
+                                   offset, task->buffer_index);
         } else {
           // Fallback to dynamic buffer
           io_uring_prep_read(sqe, file_descriptor_, task->read_page->GetRawPage(), kPageSize,
@@ -901,8 +902,8 @@ Status DiskManager::SubmitIoTasksLocked(std::span<IoTask> tasks) {
       } else {
         if (task->buffer_index >= 0 && fixed_buffers_registered_) {
           // Use fixed-buffer write for zero-copy DMA
-          io_uring_prep_write_fixed(sqe, file_descriptor_, task->write_page->GetRawPage(), kPageSize,
-                                     offset, task->buffer_index);
+          io_uring_prep_write_fixed(sqe, file_descriptor_, task->write_page->GetRawPage(),
+                                    kPageSize, offset, task->buffer_index);
         } else {
           // Fallback to dynamic buffer
           io_uring_prep_write(sqe, file_descriptor_, task->write_page->GetRawPage(), kPageSize,
@@ -993,8 +994,8 @@ Status DiskManager::RegisterFixedBuffersLocked(std::span<Page> buffers) {
   fixed_buffer_base_ = buffers.data();
   fixed_buffer_count_ = buffers.size();
 
-  Log(LogLevel::kInfo, "Registered " + std::to_string(buffers.size()) +
-                           " fixed buffers for zero-copy I/O");
+  Log(LogLevel::kInfo,
+      "Registered " + std::to_string(buffers.size()) + " fixed buffers for zero-copy I/O");
 
   return Status::Ok();
 }
