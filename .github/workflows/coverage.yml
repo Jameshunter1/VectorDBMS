@@ -49,8 +49,11 @@ jobs:
       run: |
         gcovr -r .. \
           --exclude '../tests/*' \
-          --exclude '../build/*' \
-          --exclude '.*/_deps/.*' \
+          --exclude '../build/_deps/.*' \
+          --exclude '.*/build/_deps/.*' \
+          --exclude '.*benchmark.*' \
+          --exclude '.*catch2.*' \
+          --exclude '.*httplib.*' \
           --xml-pretty \
           --xml coverage.xml \
           --html-details coverage.html
