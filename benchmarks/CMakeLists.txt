@@ -7,24 +7,29 @@ cmake_minimum_required(VERSION 3.24)
 
 include(FetchContent)
 
-FetchContent_Declare(
-  benchmark
-  GIT_REPOSITORY https://github.com/google/benchmark.git
-  GIT_TAG v1.8.5
-)
-
 # Google Benchmark uses GoogleTest for some targets; disable tests to keep builds lean.
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 
 # On Windows, Google Benchmark will detect missing POSIX features (pthreads, shm_open, etc.)
 # This is expected behavior and should not cause build failures.
+# Set these BEFORE FetchContent_Declare to ensure they're used during configuration.
 if(WIN32)
   # Disable POSIX-specific features that are not available on Windows
-  set(HAVE_POSIX_REGEX 0 CACHE BOOL "" FORCE)
-  set(HAVE_PTHREAD_AFFINITY 0 CACHE BOOL "" FORCE)
+  set(HAVE_POSIX_REGEX 0 CACHE INTERNAL "" FORCE)
+  set(HAVE_PTHREAD_AFFINITY 0 CACHE INTERNAL "" FORCE)
   set(BENCHMARK_ENABLE_LIBPFM OFF CACHE BOOL "" FORCE)
+  set(BENCHMARK_USE_LIBCXX OFF CACHE BOOL "" FORCE)
+  
+  # Disable pthread-specific code in sysinfo.cc
+  add_compile_definitions(BENCHMARK_OS_WINDOWS)
 endif()
+
+FetchContent_Declare(
+  benchmark
+  GIT_REPOSITORY https://github.com/google/benchmark.git
+  GIT_TAG v1.8.5
+)
 
 FetchContent_MakeAvailable(benchmark)
 
