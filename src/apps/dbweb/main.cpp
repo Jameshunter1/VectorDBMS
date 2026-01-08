@@ -1074,7 +1074,9 @@ static const char* kIndexHtml_Part3 = R"HTML(
 )HTML";
 
 // Combine the four parts
-static const std::string kIndexHtml = std::string(kIndexHtml_Part1) + std::string(kIndexHtml_Part1b) + std::string(kIndexHtml_Part2) + std::string(kIndexHtml_Part3);
+static const std::string kIndexHtml = std::string(kIndexHtml_Part1) +
+                                      std::string(kIndexHtml_Part1b) +
+                                      std::string(kIndexHtml_Part2) + std::string(kIndexHtml_Part3);
 
 int main(int argc, char** argv) {
   using core_engine::Engine;
@@ -1096,11 +1098,12 @@ int main(int argc, char** argv) {
   httplib::Server server;
 
   server.Get("/", [&](const httplib::Request&, httplib::Response& res) {
-    res.set_content("<!DOCTYPE html><html><body><h1>VectorDBMS Web UI</h1></body></html>", "text/html; charset=utf-8");
+    res.set_content("<!DOCTYPE html><html><body><h1>VectorDBMS Web UI</h1></body></html>",
+                    "text/html; charset=utf-8");
   });
-  
+
   Log(LogLevel::kInfo, "Registering vector API endpoints...");
-  
+
   // Vector PUT endpoint
   server.Post("/api/vector/put", [&](const httplib::Request& req, httplib::Response& res) {
     if (!req.has_param("key") || !req.has_param("vector")) {
@@ -1138,8 +1141,8 @@ int main(int argc, char** argv) {
 
     res.set_content("OK", "text/plain");
   });
-  
-  // Vector GET endpoint  
+
+  // Vector GET endpoint
   server.Get("/api/vector/get", [&](const httplib::Request& req, httplib::Response& res) {
     if (!req.has_param("key")) {
       res.status = 400;
@@ -1168,7 +1171,7 @@ int main(int argc, char** argv) {
 
     res.set_content(oss.str(), "text/plain");
   });
-  
+
   // Vector SEARCH endpoint
   server.Get("/api/vector/search", [&](const httplib::Request& req, httplib::Response& res) {
     if (!req.has_param("vector")) {
@@ -1212,7 +1215,7 @@ int main(int argc, char** argv) {
     json << "]}";
     res.set_content(json.str(), "application/json");
   });
-  
+
   // Vector STATS endpoint
   server.Get("/api/vector/stats", [&](const httplib::Request&, httplib::Response& res) {
     std::lock_guard<std::mutex> lock(engine_mutex);
@@ -1229,7 +1232,7 @@ int main(int argc, char** argv) {
 
     res.set_content(json.str(), "application/json");
   });
-  
+
   Log(LogLevel::kInfo, "Vector API endpoints registered");
 
   server.Get("/api/stats", [&](const httplib::Request&, httplib::Response& res) {

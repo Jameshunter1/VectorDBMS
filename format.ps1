@@ -6,7 +6,13 @@ Write-Host ("=" * 60) -ForegroundColor Cyan
 
 # Check if clang-format is available
 $clangFormat = $null
-$clangFormatVersions = @("clang-format", "clang-format-17", "clang-format-16", "clang-format-15")
+$clangFormatVersions = @(
+    "clang-format",
+    "clang-format-17",
+    "clang-format-16",
+    "clang-format-15",
+    "C:\Program Files\LLVM\bin\clang-format.exe"
+)
 
 foreach ($version in $clangFormatVersions) {
     try {
