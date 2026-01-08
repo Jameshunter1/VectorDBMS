@@ -27,8 +27,12 @@ if(WIN32)
   set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF CACHE BOOL "" FORCE)
   set(BENCHMARK_ENABLE_LTO OFF CACHE BOOL "" FORCE)
   
-  # Disable pthread-specific code in sysinfo.cc
-  add_compile_definitions(BENCHMARK_OS_WINDOWS)
+  # Add preprocessor definitions that will propagate to all targets
+  add_compile_definitions(BENCHMARK_OS_WINDOWS=1)
+  add_compile_definitions(_WIN32=1)
+  
+  # Ensure these are set in CMAKE_CXX_FLAGS so they're used during feature detection
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBENCHMARK_OS_WINDOWS=1" CACHE STRING "" FORCE)
 endif()
 
 FetchContent_Declare(
