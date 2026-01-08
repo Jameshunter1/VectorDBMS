@@ -81,6 +81,10 @@ int HNSWIndex::InsertNode(const std::string& key, const Vector& vec) {
 
     // Add bidirectional connections
     for (int neighbor_id : nodes_[node_id].neighbors[layer]) {
+      if (layer >= static_cast<int>(nodes_[neighbor_id].neighbors.size())) {
+        continue; // Neighbor is not present on this layer; skip unsafe connection
+      }
+
       nodes_[neighbor_id].neighbors[layer].insert(node_id);
 
       // Prune neighbor's connections if exceeded max
@@ -227,6 +231,10 @@ void HNSWIndex::SelectNeighbors(int node_id, const std::vector<int>& candidates,
   const Vector& node_vec = nodes_[node_id].vector;
   for (int candidate_id : candidates) {
     if (candidate_id != node_id && !nodes_[candidate_id].deleted) {
+      if (layer >= static_cast<int>(nodes_[candidate_id].neighbors.size())) {
+        continue; // Candidate is not resident on this layer
+      }
+
       float dist = Distance(node_vec, nodes_[candidate_id].vector);
       distances.push_back({dist, candidate_id});
     }

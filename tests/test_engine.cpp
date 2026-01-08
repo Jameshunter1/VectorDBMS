@@ -1,6 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <core_engine/common/config.hpp>
 #include <core_engine/engine.hpp>
+#include <core_engine/vector/vector.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -468,6 +470,44 @@ TEST_CASE("Engine Scan returns correct range results") {
   REQUIRE(results.size() == 10);
   for (const auto& pair : results) {
     REQUIRE(pair.second.empty()); // Values should be empty
+  }
+
+  std::error_code ec;
+  std::filesystem::remove_all(db_dir, ec);
+}
+
+TEST_CASE("Engine inserts many vectors without layer mismatches") {
+  const auto suffix = static_cast<std::uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  const auto db_dir = std::filesystem::temp_directory_path() /
+                      ("core_engine_vector_insert_" + std::to_string(suffix));
+
+  core_engine::DatabaseConfig config = core_engine::DatabaseConfig::Embedded(db_dir);
+  config.enable_vector_index = true;
+  config.vector_dimension = 32;
+
+  core_engine::Engine engine;
+  const auto status = engine.Open(config);
+  REQUIRE(status.ok());
+
+  core_engine::vector::Vector vec(config.vector_dimension);
+
+  const int insert_count = 256;
+  for (int i = 0; i < insert_count; ++i) {
+    for (std::size_t dim = 0; dim < vec.dimension(); ++dim) {
+      vec[dim] = static_cast<float>(i) + static_cast<float>(dim) * 0.01f;
+    }
+
+    const auto key = "vec_" + std::to_string(i);
+    REQUIRE(engine.PutVector(key, vec).ok());
+  }
+
+  for (int i = 0; i < insert_count; ++i) {
+    const auto key = "vec_" + std::to_string(i);
+    auto stored = engine.GetVector(key);
+    REQUIRE(stored.has_value());
+    REQUIRE(stored->dimension() == vec.dimension());
+    REQUIRE((*stored)[0] == static_cast<float>(i));
   }
 
   std::error_code ec;
