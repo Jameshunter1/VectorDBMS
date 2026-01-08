@@ -96,7 +96,7 @@ ctest --test-dir build/windows-vs2022-x64-debug -C Debug --output-on-failure
 
 ```bash
 # Configure
-cmake -B build -S src \
+cmake -B build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCORE_ENGINE_BUILD_TESTS=ON
 

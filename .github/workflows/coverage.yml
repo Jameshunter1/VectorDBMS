@@ -26,12 +26,11 @@ jobs:
           gcovr lcov
     
     - name: Configure CMake with coverage
-      working-directory: src
       env:
         CC: gcc-11
         CXX: g++-11
       run: |
-        cmake -B ../build -G Ninja \
+        cmake -B build -G Ninja \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
           -DCMAKE_C_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
@@ -48,7 +47,7 @@ jobs:
     - name: Generate coverage report
       working-directory: build
       run: |
-        gcovr -r ../src \
+        gcovr -r .. \
           --exclude '../tests/*' \
           --exclude '../build/*' \
           --exclude '.*/_deps/.*' \

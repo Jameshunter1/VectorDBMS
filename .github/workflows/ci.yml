@@ -26,9 +26,8 @@ jobs:
      uses: ilammy/msvc-dev-cmd@v1
 
    - name: Configure CMake
-     working-directory: src
      run: |
-      cmake -B ../build/ci-${{ matrix.build_type }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCORE_ENGINE_BUILD_TESTS=ON -DCORE_ENGINE_BUILD_BENCHMARKS=ON
+      cmake -B build/ci-${{ matrix.build_type }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCORE_ENGINE_BUILD_TESTS=ON -DCORE_ENGINE_BUILD_BENCHMARKS=ON
 
    - name: Build
      run: |
@@ -63,9 +62,8 @@ jobs:
       sudo apt-get install -y cmake ninja-build g++-13
 
    - name: Configure CMake
-     working-directory: src
      run: |
-      cmake -B ../build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -G Ninja -DCORE_ENGINE_BUILD_TESTS=ON -DCMAKE_CXX_COMPILER=g++-13
+      cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -G Ninja -DCORE_ENGINE_BUILD_TESTS=ON -DCMAKE_CXX_COMPILER=g++-13
 
    - name: Build
      run: |
@@ -94,9 +92,8 @@ jobs:
       sudo apt-get install -y cmake ninja-build clang-17
 
    - name: Configure CMake
-     working-directory: src
      run: |
-      cmake -B ../build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+      cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DCMAKE_CXX_COMPILER=clang++-17 -G Ninja \
             -DCORE_ENGINE_BUILD_TESTS=ON
 
@@ -143,13 +140,12 @@ jobs:
       sudo apt-get install -y cppcheck
 
    - name: Run cppcheck
-     working-directory: src
      run: |
       cppcheck --enable=warning,style,performance,portability \
                --suppress=missingIncludeSystem \
                --inline-suppr \
                --error-exitcode=0 \
-               -I include lib/ apps/ || true
+               -I src/include src/lib/ src/apps/ || true
 
  # ============================================================================
  # Security - Dependency Scan

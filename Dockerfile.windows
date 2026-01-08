@@ -21,8 +21,7 @@ WORKDIR C:\\build
 COPY . .
 
 # Build the project (disable tests/benchmarks for faster builds)
-RUN cmake -B build -S src -DCMAKE_BUILD_TYPE=Release \
- -DCORE_ENGINE_BUILD_TESTS=OFF \
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
  -DCORE_ENGINE_BUILD_BENCHMARKS=OFF && \
  cmake --build build --config Release -j
 

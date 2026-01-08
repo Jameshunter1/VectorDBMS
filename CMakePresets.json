@@ -11,7 +11,7 @@
       "name": "windows-vs2022-x64-debug",
       "displayName": "Windows VS2022 x64 Debug",
       "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/../build/${presetName}",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "architecture": "x64",
       "cacheVariables": {
         "CORE_ENGINE_BUILD_TESTS": "ON",
@@ -22,7 +22,7 @@
       "name": "windows-vs2022-x64-release",
       "displayName": "Windows VS2022 x64 Release",
       "generator": "Visual Studio 17 2022",
-      "binaryDir": "${sourceDir}/../build/${presetName}",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "architecture": "x64",
       "cacheVariables": {
         "CORE_ENGINE_BUILD_TESTS": "ON",

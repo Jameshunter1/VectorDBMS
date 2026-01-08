@@ -2,37 +2,25 @@ cmake_minimum_required(VERSION 3.24)
 
 # BENCHMARKS
 #
-# This CMakeLists is added by CORE-ENGINE via add_subdirectory(../benchmarks ...).
-# It assumes the target core_engine::core_engine already exists.
+# Google Benchmark integration with Windows pthread.h workaround
 
 include(FetchContent)
 
-# Google Benchmark uses GoogleTest for some targets; disable tests to keep builds lean.
+# Google Benchmark configuration
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 
-# On Windows, Google Benchmark will detect missing POSIX features (pthreads, shm_open, etc.)
-# This is expected behavior and should not cause build failures.
-# Set these BEFORE FetchContent_Declare to ensure they're used during configuration.
+# Windows-specific configuration to prevent pthread.h errors
 if(WIN32)
-  # Disable POSIX-specific features that are not available on Windows
+  # Disable all POSIX-specific features
   set(HAVE_POSIX_REGEX 0 CACHE INTERNAL "" FORCE)
   set(HAVE_PTHREAD_AFFINITY 0 CACHE INTERNAL "" FORCE)
   set(BENCHMARK_ENABLE_LIBPFM OFF CACHE BOOL "" FORCE)
   set(BENCHMARK_USE_LIBCXX OFF CACHE BOOL "" FORCE)
-  
-  # CRITICAL: Disable pthread usage completely on Windows
   set(BENCHMARK_ENABLE_PTHREAD OFF CACHE BOOL "" FORCE)
   set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
   set(BENCHMARK_ENABLE_ASSEMBLY_TESTS OFF CACHE BOOL "" FORCE)
   set(BENCHMARK_ENABLE_LTO OFF CACHE BOOL "" FORCE)
-  
-  # Add preprocessor definitions that will propagate to all targets
-  add_compile_definitions(BENCHMARK_OS_WINDOWS=1)
-  add_compile_definitions(_WIN32=1)
-  
-  # Ensure these are set in CMAKE_CXX_FLAGS so they're used during feature detection
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBENCHMARK_OS_WINDOWS=1" CACHE STRING "" FORCE)
 endif()
 
 FetchContent_Declare(
@@ -43,12 +31,40 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(benchmark)
 
+# Patch Google Benchmark's sysinfo.cc on Windows
+if(WIN32)
+  FetchContent_GetProperties(benchmark)
+  set(SYSINFO_FILE "${benchmark_SOURCE_DIR}/src/sysinfo.cc")
+  
+  if(EXISTS "${SYSINFO_FILE}")
+    file(READ "${SYSINFO_FILE}" SYSINFO_CONTENT)
+    
+    # Check if already patched
+    string(FIND "${SYSINFO_CONTENT}" "// PATCHED FOR WINDOWS" PATCH_POS)
+    
+    if(PATCH_POS EQUAL -1)
+      # Add guards around pthread.h include
+      string(REPLACE 
+        "#include <pthread.h>"
+        "// PATCHED FOR WINDOWS: Guard pthread.h include\n#if defined(__unix__) || defined(__APPLE__)\n#include <pthread.h>\n#endif"
+        SYSINFO_CONTENT 
+        "${SYSINFO_CONTENT}"
+      )
+      
+      file(WRITE "${SYSINFO_FILE}" "${SYSINFO_CONTENT}")
+      message(STATUS "Patched ${SYSINFO_FILE} to guard pthread.h include on Windows")
+    endif()
+  endif()
+endif()
+
+# Build benchmarks executable
 add_executable(core_engine_benchmarks
   bench_page_file.cpp
   bench_advanced.cpp
   bench_storage_layer.cpp
   bench_vector_ops.cpp
 )
+
 set_target_properties(core_engine_benchmarks PROPERTIES FOLDER "benchmarks")
 
 target_link_libraries(core_engine_benchmarks

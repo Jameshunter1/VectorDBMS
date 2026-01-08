@@ -21,7 +21,7 @@ WORKDIR /build
 COPY . .
 
 # Build the project
-RUN cmake -B build -S src -DCMAKE_BUILD_TYPE=Release -GNinja \
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -GNinja \
  -DCORE_ENGINE_BUILD_TESTS=OFF \
  -DCORE_ENGINE_BUILD_BENCHMARKS=OFF && \
     cmake --build build -j$(nproc)

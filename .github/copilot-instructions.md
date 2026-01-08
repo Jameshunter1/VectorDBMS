@@ -73,14 +73,14 @@ VectorDBMS/                      # ⚠️ Run CMake from here, NOT from src/
 
 **Windows (Visual Studio)** - Multi-config generator:
 ```powershell
-cmake --preset windows-vs2022-x64-debug -S src          # From repo root
+cmake --preset windows-vs2022-x64-debug          # From repo root
 cmake --build build/windows-vs2022-x64-debug --config Debug
 ctest --test-dir build/windows-vs2022-x64-debug -C Debug --output-on-failure  # ⚠️ -C Debug REQUIRED
 ```
 
 **Linux/macOS (Make or Ninja)** - Single-config generator:
 ```bash
-cmake -B build -S src -DCMAKE_BUILD_TYPE=Debug
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
 ctest --test-dir build --output-on-failure  # ⚠️ NO -C flag
 ```

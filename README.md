@@ -15,7 +15,7 @@ curl http://localhost:8080/api/put?key=hello&value=world
 
 # Local build - Windows
 git clone https://github.com/Jameshunter1/VectorDBMS.git && cd VectorDBMS
-cmake --preset windows-vs2022-x64-debug -S src
+cmake --preset windows-vs2022-x64-debug
 cmake --build build/windows-vs2022-x64-debug --config Debug
 .\build\windows-vs2022-x64-debug\Debug\dbcli.exe
 
