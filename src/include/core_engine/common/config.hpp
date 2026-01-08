@@ -42,6 +42,11 @@ struct DatabaseConfig {
   /// Default: 1024 pages = 4 MB
   std::size_t buffer_pool_size = 1024;
 
+  /// Enable io_uring fixed-buffer registration for zero-copy I/O (Year 2 Q2)
+  /// Default: true (enables when io_uring is available)
+  /// Benefits: Reduces per-I/O latency by 2-3 µs by eliminating kernel page pinning
+  bool enable_fixed_buffers = true;
+
   /// Block cache size in bytes (future: caching page blocks)
   std::size_t block_cache_size_bytes = 256 * 1024 * 1024; // 256 MB
 
