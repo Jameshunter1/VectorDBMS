@@ -19,6 +19,7 @@ add_executable(core_engine_tests
   test_engine.cpp
   test_web_api.cpp
   test_storage_layer.cpp
+  test_fixed_buffers.cpp
 )
 set_target_properties(core_engine_tests PROPERTIES FOLDER "tests")
 

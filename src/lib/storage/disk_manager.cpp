@@ -35,7 +35,8 @@ DiskManager::DiskManager(std::filesystem::path db_file, Options options)
 #if defined(CORE_ENGINE_HAS_IO_URING)
       ,
       io_uring_initialized_(false),
-      io_uring_queue_depth_(options_.io_uring_queue_depth == 0 ? 64 : options_.io_uring_queue_depth)
+      io_uring_queue_depth_(options_.io_uring_queue_depth == 0 ? 64 : options_.io_uring_queue_depth),
+      fixed_buffers_registered_(false), fixed_buffer_base_(nullptr), fixed_buffer_count_(0)
 #endif
 {
 #ifdef _WIN32
@@ -44,6 +45,7 @@ DiskManager::DiskManager(std::filesystem::path db_file, Options options)
 #if !defined(CORE_ENGINE_HAS_IO_URING)
   options_.enable_io_uring = false;
   options_.io_uring_queue_depth = 0;
+  options_.register_fixed_buffers = false;
 #else
   if (options_.io_uring_queue_depth == 0) {
     options_.io_uring_queue_depth = 64;
@@ -336,7 +338,8 @@ Status DiskManager::ProcessReadRequestsLocked(std::span<PageReadRequest> request
     std::vector<IoTask> tasks;
     tasks.reserve(requests.size());
     for (auto& request : requests) {
-      tasks.push_back({IoTask::Type::kRead, request.page_id, request.page, nullptr});
+      const int buffer_index = GetBufferIndex(request.page);
+      tasks.push_back({IoTask::Type::kRead, request.page_id, request.page, nullptr, buffer_index});
     }
     return SubmitIoTasksLocked(tasks);
   }
@@ -439,7 +442,8 @@ Status DiskManager::ProcessWriteRequestsLocked(std::span<PageWriteRequest> reque
     std::vector<IoTask> tasks;
     tasks.reserve(requests.size());
     for (auto& request : requests) {
-      tasks.push_back({IoTask::Type::kWrite, request.page_id, nullptr, request.page});
+      const int buffer_index = GetBufferIndex(request.page);
+      tasks.push_back({IoTask::Type::kWrite, request.page_id, nullptr, request.page, buffer_index});
     }
     auto status = SubmitIoTasksLocked(tasks);
     if (!status.ok()) {
@@ -824,6 +828,8 @@ Status DiskManager::InitializeIoUringLocked() {
 
 void DiskManager::ShutdownIoUringLocked() {
   if (io_uring_initialized_) {
+    // Unregister fixed buffers before shutting down io_uring
+    UnregisterFixedBuffersLocked();
     io_uring_queue_exit(&io_ring_);
     io_uring_initialized_ = false;
   }
@@ -883,10 +889,25 @@ Status DiskManager::SubmitIoTasksLocked(std::span<IoTask> tasks) {
       const std::int64_t offset = PageIdToOffset(task->page_id);
 
       if (task->type == IoTask::Type::kRead) {
-        io_uring_prep_read(sqe, file_descriptor_, task->read_page->GetRawPage(), kPageSize, offset);
+        if (task->buffer_index >= 0 && fixed_buffers_registered_) {
+          // Use fixed-buffer read for zero-copy DMA
+          io_uring_prep_read_fixed(sqe, file_descriptor_, task->read_page->GetRawPage(), kPageSize,
+                                    offset, task->buffer_index);
+        } else {
+          // Fallback to dynamic buffer
+          io_uring_prep_read(sqe, file_descriptor_, task->read_page->GetRawPage(), kPageSize,
+                             offset);
+        }
       } else {
-        io_uring_prep_write(sqe, file_descriptor_, task->write_page->GetRawPage(), kPageSize,
-                            offset);
+        if (task->buffer_index >= 0 && fixed_buffers_registered_) {
+          // Use fixed-buffer write for zero-copy DMA
+          io_uring_prep_write_fixed(sqe, file_descriptor_, task->write_page->GetRawPage(), kPageSize,
+                                     offset, task->buffer_index);
+        } else {
+          // Fallback to dynamic buffer
+          io_uring_prep_write(sqe, file_descriptor_, task->write_page->GetRawPage(), kPageSize,
+                              offset);
+        }
       }
 
       io_uring_sqe_set_data(sqe, task);
@@ -930,6 +951,102 @@ Status DiskManager::SubmitIoTasksLocked(std::span<IoTask> tasks) {
 
   return Status::Ok();
 }
+
+Status DiskManager::RegisterFixedBuffersLocked(std::span<Page> buffers) {
+  if (buffers.empty()) {
+    return Status::InvalidArgument("Cannot register empty buffer span");
+  }
+
+  if (fixed_buffers_registered_) {
+    return Status::AlreadyExists("Fixed buffers already registered");
+  }
+
+  if (!io_uring_initialized_ || !options_.enable_io_uring) {
+    return Status::Internal("io_uring not initialized");
+  }
+
+  // Validate 4KB page alignment requirement for io_uring fixed buffers
+  if (reinterpret_cast<std::uintptr_t>(buffers.data()) % 4096 != 0) {
+    return Status::InvalidArgument("Buffers must be 4KB-aligned for io_uring fixed buffers");
+  }
+
+  // Create iovec array for registration
+  std::vector<iovec> iovecs;
+  iovecs.reserve(buffers.size());
+
+  for (const auto& page : buffers) {
+    iovec iov;
+    iov.iov_base = const_cast<char*>(page.GetRawPage());
+    iov.iov_len = kPageSize;
+    iovecs.push_back(iov);
+  }
+
+  // Register buffers with io_uring (atomic operation - all-or-nothing)
+  const int ret = io_uring_register_buffers(&io_ring_, iovecs.data(), iovecs.size());
+  if (ret < 0) {
+    // io_uring_register_buffers is atomic; no partial registration occurs
+    return Status::IoError(std::string("io_uring_register_buffers failed: ") + std::strerror(-ret));
+  }
+
+  // Store registration metadata
+  fixed_buffers_registered_ = true;
+  fixed_buffer_base_ = buffers.data();
+  fixed_buffer_count_ = buffers.size();
+
+  Log(LogLevel::kInfo, "Registered " + std::to_string(buffers.size()) +
+                           " fixed buffers for zero-copy I/O");
+
+  return Status::Ok();
+}
+
+void DiskManager::UnregisterFixedBuffersLocked() {
+  if (!fixed_buffers_registered_) {
+    return;
+  }
+
+  if (io_uring_initialized_) {
+    io_uring_unregister_buffers(&io_ring_);
+  }
+
+  fixed_buffers_registered_ = false;
+  fixed_buffer_base_ = nullptr;
+  fixed_buffer_count_ = 0;
+
+  Log(LogLevel::kDebug, "Unregistered fixed buffers");
+}
+
+int DiskManager::GetBufferIndex(const Page* page) const {
+  if (!fixed_buffers_registered_ || !page || !fixed_buffer_base_) {
+    return -1; // Use dynamic buffer
+  }
+
+  // Calculate buffer index from pointer arithmetic
+  const std::ptrdiff_t diff = page - fixed_buffer_base_;
+
+  // Validate the page is within the registered buffer range
+  if (diff < 0 || static_cast<std::size_t>(diff) >= fixed_buffer_count_) {
+    return -1; // Page not in registered buffer range, use dynamic buffer
+  }
+
+  return static_cast<int>(diff);
+}
 #endif
+
+Status DiskManager::RegisterFixedBuffers(std::span<Page> buffers) {
+#if defined(CORE_ENGINE_HAS_IO_URING)
+  std::lock_guard<std::mutex> lock(mutex_);
+  return RegisterFixedBuffersLocked(buffers);
+#else
+  (void)buffers; // Suppress unused parameter warning
+  return Status::Unimplemented("io_uring not available on this platform");
+#endif
+}
+
+void DiskManager::UnregisterFixedBuffers() {
+#if defined(CORE_ENGINE_HAS_IO_URING)
+  std::lock_guard<std::mutex> lock(mutex_);
+  UnregisterFixedBuffersLocked();
+#endif
+}
 
 } // namespace core_engine
