@@ -1,16 +1,53 @@
 #include <core_engine/common/logger.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <iostream>
+#include <string>
+
+namespace {
+
+core_engine::LogLevel DetermineDefaultLogLevel() {
+#ifdef NDEBUG
+  core_engine::LogLevel level = core_engine::LogLevel::kInfo;
+#else
+  core_engine::LogLevel level = core_engine::LogLevel::kDebug;
+#endif
+
+  const char* env = std::getenv("CORE_ENGINE_LOG_LEVEL");
+  if (!env) {
+    return level;
+  }
+
+  std::string value(env);
+  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+
+  if (value == "debug") {
+    return core_engine::LogLevel::kDebug;
+  }
+  if (value == "info") {
+    return core_engine::LogLevel::kInfo;
+  }
+  if (value == "warn" || value == "warning") {
+    return core_engine::LogLevel::kWarn;
+  }
+  if (value == "error" || value == "err") {
+    return core_engine::LogLevel::kError;
+  }
+
+  return level;
+}
+
+} // namespace
 
 namespace core_engine {
 
-// Default: DEBUG in debug builds, INFO in release builds
-static LogLevel g_min_log_level =
-#ifdef NDEBUG
-    LogLevel::kInfo;
-#else
-    LogLevel::kDebug;
-#endif
+// Default: DEBUG in debug builds, INFO in release builds (overridable via
+// CORE_ENGINE_LOG_LEVEL environment variable)
+static LogLevel g_min_log_level = DetermineDefaultLogLevel();
 
 void SetMinLogLevel(LogLevel level) {
   g_min_log_level = level;

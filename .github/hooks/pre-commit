@@ -1,0 +1,12 @@
+#!/bin/sh
+# Git pre-commit hook to format code using clang-format
+
+echo "Running clang-format via format.ps1..."
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./format.ps1
+
+if [ $? -ne 0 ]; then
+    echo "clang-format failed. Aborting commit."
+    exit 1
+fi
+
+echo "clang-format completed successfully."

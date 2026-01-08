@@ -43,7 +43,9 @@ jobs:
     
     - name: Run Tests
       working-directory: build
-      run: ctest --output-on-failure --verbose
+      env:
+        CORE_ENGINE_LOG_LEVEL: warn
+      run: ctest --output-on-failure
     
     - name: Generate coverage report
       working-directory: build
