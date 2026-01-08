@@ -10,7 +10,7 @@ Write-Host "This script populates the database with sample vector embeddings"
 Write-Host "representing different domains: users, documents, and images`n"
 
 # Helper function to PUT a vector
-function Put-Vector {
+function Add-Vector {
     param(
         [string]$key,
         [float[]]$vector
@@ -18,7 +18,7 @@ function Put-Vector {
     $vectorStr = $vector -join ","
     $uri = "$baseUrl/api/vector/put?key=$key&vector=$vectorStr"
     try {
-        $response = Invoke-RestMethod -Uri $uri -Method Post
+        Invoke-RestMethod -Uri $uri -Method Post -ContentType "application/json" | Out-Null
         return $true
     } catch {
         Write-Host "Error inserting $key : $_" -ForegroundColor Red
@@ -45,7 +45,7 @@ function Search-Similar {
 
 # Check if server is running
 try {
-    $healthCheck = Invoke-RestMethod -Uri "$baseUrl/api/stats" -Method Get -ErrorAction Stop
+    Invoke-RestMethod -Uri "$baseUrl/api/health" -Method Get | Out-Null
     Write-Host "✓ Server is running" -ForegroundColor Green
 } catch {
     Write-Host "✗ Server not accessible at $baseUrl" -ForegroundColor Red
@@ -68,7 +68,7 @@ $users = @{
 
 $userCount = 0
 foreach ($user in $users.GetEnumerator()) {
-    if (Put-Vector -key $user.Key -vector $user.Value) {
+    if (Add-Vector -key $user.Key -vector $user.Value) {
         $userCount++
         Write-Host "  ✓ Inserted $($user.Key)" -ForegroundColor Green
     }
@@ -92,7 +92,7 @@ $documents = @{
 
 $docCount = 0
 foreach ($doc in $documents.GetEnumerator()) {
-    if (Put-Vector -key $doc.Key -vector $doc.Value) {
+    if (Add-Vector -key $doc.Key -vector $doc.Value) {
         $docCount++
         Write-Host "  ✓ Inserted $($doc.Key)" -ForegroundColor Green
     }
@@ -115,7 +115,7 @@ $images = @{
 
 $imgCount = 0
 foreach ($img in $images.GetEnumerator()) {
-    if (Put-Vector -key $img.Key -vector $img.Value) {
+    if (Add-Vector -key $img.Key -vector $img.Value) {
         $imgCount++
         Write-Host "  ✓ Inserted $($img.Key)" -ForegroundColor Green
     }

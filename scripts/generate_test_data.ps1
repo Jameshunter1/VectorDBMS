@@ -91,7 +91,7 @@ Write-Host "`n🔄 Testing GET operations..." -ForegroundColor Yellow
 $getCount = 0
 for ($i = 1; $i -le 20; $i++) {
     try {
-        $value = Invoke-RestMethod -Uri "http://localhost:8080/api/get?key=user_$i" -TimeoutSec 2
+        $null = Invoke-RestMethod -Uri "http://localhost:8080/api/get?key=user_$i" -TimeoutSec 2
         $getCount++
     } catch {
         # Ignore errors

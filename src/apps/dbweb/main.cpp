@@ -1380,14 +1380,20 @@ int main(int argc, char** argv) {
       }
     }
 
-    core_engine::vector::Vector vec(values);
+    try {
+      core_engine::vector::Vector vec(values);
 
-    std::lock_guard<std::mutex> lock(engine_mutex);
-    const auto status = engine.PutVector(key, vec);
+      std::lock_guard<std::mutex> lock(engine_mutex);
+      const auto status = engine.PutVector(key, vec);
 
-    if (!status.ok()) {
+      if (!status.ok()) {
+        res.status = 500;
+        res.set_content(status.ToString(), "text/plain");
+        return;
+      }
+    } catch (const std::exception& ex) {
       res.status = 500;
-      res.set_content(status.ToString(), "text/plain");
+      res.set_content(std::string("EXCEPTION: ") + ex.what(), "text/plain");
       return;
     }
 

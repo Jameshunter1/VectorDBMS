@@ -85,6 +85,14 @@ core_engine_apply_project_options(dbcli)
 core_engine_apply_warnings(dbcli ${CORE_ENGINE_WARNINGS_AS_ERRORS})
 core_engine_apply_sanitizers(dbcli ${CORE_ENGINE_ENABLE_SANITIZERS})
 
+# ---- Disk demo (storage milestone) ------------------------------------------
+add_executable(disk_demo apps/examples/disk_demo.cpp)
+set_target_properties(disk_demo PROPERTIES OUTPUT_NAME "disk_demo")
+target_link_libraries(disk_demo PRIVATE core_engine::core_engine)
+core_engine_apply_project_options(disk_demo)
+core_engine_apply_warnings(disk_demo ${CORE_ENGINE_WARNINGS_AS_ERRORS})
+core_engine_apply_sanitizers(disk_demo ${CORE_ENGINE_ENABLE_SANITIZERS})
+
 # ---- Web frontend (developer demo) ------------------------------------------
 if(CORE_ENGINE_BUILD_WEB)
   include(FetchContent)
