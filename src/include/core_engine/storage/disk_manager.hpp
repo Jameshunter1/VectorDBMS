@@ -51,13 +51,18 @@ namespace core_engine {
 class DiskManager {
 public:
   struct Options {
+    bool enable_io_uring;
+    std::uint32_t io_uring_queue_depth;
+    bool register_fixed_buffers;
+
+    Options()
 #if defined(CORE_ENGINE_HAS_IO_URING)
-    bool enable_io_uring = true;
-    std::uint32_t io_uring_queue_depth = 64;
+        : enable_io_uring(true), io_uring_queue_depth(64), register_fixed_buffers(true)
 #else
-    bool enable_io_uring = false;
-    std::uint32_t io_uring_queue_depth = 0;
+        : enable_io_uring(false), io_uring_queue_depth(0), register_fixed_buffers(false)
 #endif
+    {
+    }
   };
 
   struct PageReadRequest {
@@ -71,7 +76,7 @@ public:
   };
 
   // Create DiskManager for a specific database file
-  explicit DiskManager(std::filesystem::path db_file, Options options = {});
+  explicit DiskManager(std::filesystem::path db_file, Options options = Options());
   ~DiskManager();
 
   // Disable copy (manages OS file handle)
@@ -146,6 +151,36 @@ public:
   // Use sparingly: after WAL flushes, at checkpoints
   Status Sync();
 
+  // ========== Fixed-Buffer Registration (io_uring zero-copy) ==========
+
+  // Register a contiguous buffer region for zero-copy DMA operations
+  // buffers: Span of pages to register (must be contiguous in memory)
+  // Returns: Status::Ok() on success, error status on failure
+  //
+  // Benefits:
+  // - Eliminates per-call kernel page pinning (2-3 µs savings per I/O)
+  // - Enables IORING_OP_READ_FIXED / IORING_OP_WRITE_FIXED operations
+  // - Prerequisite for zero-copy networking integration
+  //
+  // Requirements:
+  // - io_uring must be enabled and initialized
+  // - Buffers must be page-aligned (4 KB alignment)
+  // - Only one registration active at a time (call Unregister first)
+  Status RegisterFixedBuffers(std::span<Page> buffers);
+
+  // Unregister previously registered fixed buffers
+  // Safe to call even if no buffers are registered
+  void UnregisterFixedBuffers();
+
+  // Check if fixed buffers are currently registered
+  bool HasFixedBuffers() const {
+#if defined(CORE_ENGINE_HAS_IO_URING)
+    return fixed_buffers_registered_;
+#else
+    return false;
+#endif
+  }
+
   // ========== Statistics (debugging/monitoring) ==========
 
   struct Stats {
@@ -177,11 +212,15 @@ private:
     PageId page_id;
     Page* read_page;
     const Page* write_page;
+    int buffer_index; // Fixed-buffer slot ID (-1 for dynamic buffer)
   };
 
   Status InitializeIoUringLocked();
   void ShutdownIoUringLocked();
   Status SubmitIoTasksLocked(std::span<IoTask> tasks);
+  Status RegisterFixedBuffersLocked(std::span<Page> buffers);
+  void UnregisterFixedBuffersLocked();
+  int GetBufferIndex(const Page* page) const;
 #else
   Status InitializeIoUringLocked() {
     return Status::Ok();
@@ -200,6 +239,9 @@ private:
   bool io_uring_initialized_;
   std::uint32_t io_uring_queue_depth_;
   io_uring io_ring_;
+  bool fixed_buffers_registered_;
+  Page* fixed_buffer_base_;         // Base address of registered buffer region
+  std::size_t fixed_buffer_count_;  // Number of registered buffers
 #endif
 
   mutable std::mutex mutex_; // Coarse-grained lock for thread safety
