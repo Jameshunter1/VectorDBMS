@@ -4,8 +4,10 @@
 #include <algorithm>
 #include <array>
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <limits>
 #include <span>
 #include <string>
 #include <system_error>
@@ -26,13 +28,16 @@ namespace fs = std::filesystem;
 
 DiskManager::DiskManager(std::filesystem::path db_file, Options options)
     : db_file_(std::move(db_file)), file_handle_(nullptr), is_open_(false), num_pages_(0),
-      options_(std::move(options)), file_descriptor_(-1)
+      options_(std::move(options)), file_descriptor_(-1), use_direct_io_(false)
 #if defined(CORE_ENGINE_HAS_IO_URING)
       ,
       io_uring_initialized_(false),
       io_uring_queue_depth_(options_.io_uring_queue_depth == 0 ? 64 : options_.io_uring_queue_depth)
 #endif
 {
+#ifdef _WIN32
+  direct_file_handle_ = INVALID_HANDLE_VALUE;
+#endif
 #if !defined(CORE_ENGINE_HAS_IO_URING)
   options_.enable_io_uring = false;
   options_.io_uring_queue_depth = 0;
@@ -65,33 +70,87 @@ Status DiskManager::Open() {
     }
   }
 
-  // Open file for read/write, create if doesn't exist
-  // Windows: FILE_FLAG_NO_BUFFERING for O_DIRECT equivalent
-  // POSIX: Would use open() with O_DIRECT flag
-
-#ifdef _WIN32
-  // Windows implementation using CreateFile for FILE_FLAG_NO_BUFFERING
-  // Note: For simplicity in this milestone, we use standard fopen
-  // Production code should use CreateFile with FILE_FLAG_NO_BUFFERING
-  // and ReadFile/WriteFile with aligned buffers
-
-  // Check if file exists to determine initial page count
-  bool file_exists = fs::exists(db_file_);
-
-  // Use _wfopen_s for security compliance
-  errno_t err = _wfopen_s(&file_handle_, db_file_.wstring().c_str(), L"rb+");
-  if (err != 0 && !file_exists) {
-    // File doesn't exist, create it
-    err = _wfopen_s(&file_handle_, db_file_.wstring().c_str(), L"wb+");
+  auto direct_status = OpenDirectLocked();
+  if (direct_status.ok()) {
+    use_direct_io_ = true;
+  } else if (direct_status.code() != StatusCode::kUnimplemented) {
+    return direct_status;
+  } else {
+    auto buffered_status = OpenBufferedLocked();
+    if (!buffered_status.ok()) {
+      return buffered_status;
+    }
+    use_direct_io_ = false;
   }
 
-#else
-  // POSIX implementation
-  bool file_exists = fs::exists(db_file_);
+#if defined(CORE_ENGINE_HAS_IO_URING)
+  if (options_.enable_io_uring) {
+    const Status io_status = InitializeIoUringLocked();
+    if (!io_status.ok()) {
+      Log(LogLevel::kWarn,
+          "io_uring disabled for " + db_file_.string() + ": " + std::string(io_status.message()));
+      options_.enable_io_uring = false;
+    }
+  }
+#endif
 
+  is_open_ = true;
+
+  Log(LogLevel::kDebug,
+      "DiskManager opened: " + db_file_.string() + " (" + std::to_string(num_pages_) +
+          " pages, direct_io=" + std::string(use_direct_io_ ? "true" : "false") + ")");
+
+  return Status::Ok();
+}
+
+void DiskManager::Close() {
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!is_open_) {
+    return;
+  }
+
+  ShutdownIoUringLocked();
+
+  if (use_direct_io_) {
+#ifdef _WIN32
+    if (direct_file_handle_ != INVALID_HANDLE_VALUE) {
+      FlushFileBuffers(static_cast<HANDLE>(direct_file_handle_));
+      CloseHandle(static_cast<HANDLE>(direct_file_handle_));
+      direct_file_handle_ = INVALID_HANDLE_VALUE;
+    }
+#else
+    if (file_descriptor_ >= 0) {
+      ::close(file_descriptor_);
+      file_descriptor_ = -1;
+    }
+#endif
+  } else if (file_handle_) {
+    std::fflush(file_handle_);
+    std::fclose(file_handle_);
+    file_handle_ = nullptr;
+#if !defined(_WIN32)
+    file_descriptor_ = -1;
+#endif
+  }
+
+  is_open_ = false;
+  use_direct_io_ = false;
+
+  Log(LogLevel::kDebug, "DiskManager closed: " + db_file_.string());
+}
+
+Status DiskManager::OpenBufferedLocked() {
+  const bool file_exists = fs::exists(db_file_);
+
+#ifdef _WIN32
+  errno_t err = _wfopen_s(&file_handle_, db_file_.wstring().c_str(), L"rb+");
+  if (err != 0 && !file_exists) {
+    err = _wfopen_s(&file_handle_, db_file_.wstring().c_str(), L"wb+");
+  }
+#else
   file_handle_ = std::fopen(db_file_.c_str(), "rb+");
   if (!file_handle_ && !file_exists) {
-    // File doesn't exist, create it
     file_handle_ = std::fopen(db_file_.c_str(), "wb+");
   }
 #endif
@@ -100,18 +159,21 @@ Status DiskManager::Open() {
     return Status::IoError("Failed to open file: " + db_file_.string());
   }
 
-  // Determine file size and calculate number of pages
-  std::fseek(file_handle_, 0, SEEK_END);
-  const long file_size = std::ftell(file_handle_);
-  std::fseek(file_handle_, 0, SEEK_SET);
+  if (std::fseek(file_handle_, 0, SEEK_END) != 0) {
+    std::fclose(file_handle_);
+    file_handle_ = nullptr;
+    return Status::IoError("Failed to seek file end");
+  }
 
+  const long file_size = std::ftell(file_handle_);
   if (file_size < 0) {
     std::fclose(file_handle_);
     file_handle_ = nullptr;
     return Status::IoError("Failed to determine file size");
   }
 
-  // File size must be multiple of page size
+  std::fseek(file_handle_, 0, SEEK_SET);
+
   if (file_size % kPageSize != 0) {
     std::fclose(file_handle_);
     file_handle_ = nullptr;
@@ -131,44 +193,78 @@ Status DiskManager::Open() {
   file_descriptor_ = -1;
 #endif
 
-  is_open_ = true;
-
-#if defined(CORE_ENGINE_HAS_IO_URING)
-  if (options_.enable_io_uring) {
-    const Status io_status = InitializeIoUringLocked();
-    if (!io_status.ok()) {
-      Log(LogLevel::kWarn,
-          "io_uring disabled for " + db_file_.string() + ": " + std::string(io_status.message()));
-      options_.enable_io_uring = false;
-    }
-  }
+#ifdef _WIN32
+  direct_file_handle_ = INVALID_HANDLE_VALUE;
 #endif
-
-  Log(LogLevel::kDebug,
-      "DiskManager opened: " + db_file_.string() + " (" + std::to_string(num_pages_) + " pages)");
 
   return Status::Ok();
 }
 
-void DiskManager::Close() {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (!is_open_) {
-    return;
+Status DiskManager::OpenDirectLocked() {
+#ifdef _WIN32
+  const DWORD access = GENERIC_READ | GENERIC_WRITE;
+  const DWORD share = FILE_SHARE_READ;
+  const DWORD flags = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH;
+  HANDLE handle =
+      CreateFileW(db_file_.wstring().c_str(), access, share, nullptr, OPEN_ALWAYS, flags, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    const DWORD err = GetLastError();
+    if (err == ERROR_INVALID_PARAMETER || err == ERROR_NOT_SUPPORTED) {
+      return Status::Unimplemented("Unbuffered I/O not supported on this volume");
+    }
+    return Status::IoError("CreateFileW failed: error=" + std::to_string(err));
   }
 
-  ShutdownIoUringLocked();
-
-  if (file_handle_) {
-    std::fflush(file_handle_); // Flush any buffered writes
-    std::fclose(file_handle_);
-    file_handle_ = nullptr;
+  LARGE_INTEGER size{};
+  if (!GetFileSizeEx(handle, &size)) {
+    CloseHandle(handle);
+    return Status::IoError("Failed to determine file size");
+  }
+  if (size.QuadPart % kPageSize != 0) {
+    CloseHandle(handle);
+    return Status::Corruption("File size is not a multiple of page size");
   }
 
+  direct_file_handle_ = handle;
+  file_handle_ = nullptr;
   file_descriptor_ = -1;
-  is_open_ = false;
+  num_pages_ = static_cast<PageId>(size.QuadPart / kPageSize);
+  return Status::Ok();
+#else
+#if defined(O_DIRECT)
+  int flags = O_RDWR | O_CREAT | O_DIRECT;
+#else
+  return Status::Unimplemented("O_DIRECT not available on this platform");
+#endif
+#if defined(O_SYNC)
+  flags |= O_SYNC;
+#endif
 
-  Log(LogLevel::kDebug, "DiskManager closed: " + db_file_.string());
+  int fd = ::open(db_file_.c_str(), flags, 0644);
+  if (fd < 0) {
+    if (errno == EINVAL || errno == ENOTSUP) {
+      return Status::Unimplemented("Direct I/O not supported for this filesystem");
+    }
+    return Status::IoError("Failed to open file with direct I/O: " +
+                           std::string(std::strerror(errno)));
+  }
+
+  off_t size = ::lseek(fd, 0, SEEK_END);
+  if (size < 0) {
+    ::close(fd);
+    return Status::IoError("Failed to determine file size");
+  }
+  if (size % kPageSize != 0) {
+    ::close(fd);
+    return Status::Corruption("File size is not a multiple of page size");
+  }
+  ::lseek(fd, 0, SEEK_SET);
+
+  file_descriptor_ = fd;
+  file_handle_ = nullptr;
+  num_pages_ = static_cast<PageId>(size / kPageSize);
+  return Status::Ok();
+#endif
 }
 
 Status DiskManager::ReadPage(PageId page_id, Page* page) {
@@ -252,6 +348,82 @@ Status DiskManager::ProcessReadRequestsLocked(std::span<PageReadRequest> request
   return Status::Ok();
 }
 
+Status DiskManager::ReadContiguous(PageId first_page_id, void* buffer, std::size_t page_count) {
+  if (page_count == 0) {
+    return Status::Ok();
+  }
+  if (!buffer) {
+    return Status::InvalidArgument("Buffer pointer is null");
+  }
+
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!is_open_) {
+    return Status::Internal("DiskManager not open");
+  }
+
+  if (first_page_id == kInvalidPageId) {
+    return Status::InvalidArgument("Invalid first_page_id");
+  }
+
+  const std::uint64_t last_page = static_cast<std::uint64_t>(first_page_id) + page_count - 1;
+  if (last_page > static_cast<std::uint64_t>(num_pages_)) {
+    return Status::InvalidArgument("Requested range exceeds database size");
+  }
+
+  if (page_count > (std::numeric_limits<std::size_t>::max)() / kPageSize) {
+    return Status::InvalidArgument("Requested range is too large");
+  }
+
+  const std::int64_t offset = PageIdToOffset(first_page_id);
+  const std::size_t total_bytes = page_count * kPageSize;
+  auto status = ReadRawLocked(offset, buffer, total_bytes);
+  if (status.ok()) {
+    stats_.total_reads += page_count;
+  }
+  return status;
+}
+
+Status DiskManager::WriteContiguous(PageId first_page_id, const void* buffer,
+                                    std::size_t page_count) {
+  if (page_count == 0) {
+    return Status::Ok();
+  }
+  if (!buffer) {
+    return Status::InvalidArgument("Buffer pointer is null");
+  }
+
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (!is_open_) {
+    return Status::Internal("DiskManager not open");
+  }
+
+  if (first_page_id == kInvalidPageId) {
+    return Status::InvalidArgument("Invalid first_page_id");
+  }
+
+  const std::uint64_t last_page = static_cast<std::uint64_t>(first_page_id) + page_count - 1;
+  const std::uint64_t first_page = static_cast<std::uint64_t>(first_page_id);
+  const std::uint64_t max_allowed = static_cast<std::uint64_t>(num_pages_) + 1;
+  if (first_page > max_allowed) {
+    return Status::InvalidArgument("Cannot create gaps in page file");
+  }
+
+  if (page_count > (std::numeric_limits<std::size_t>::max)() / kPageSize) {
+    return Status::InvalidArgument("Requested range is too large");
+  }
+
+  const std::int64_t offset = PageIdToOffset(first_page_id);
+  const std::size_t total_bytes = page_count * kPageSize;
+  auto status = WriteRawLocked(offset, buffer, total_bytes);
+  if (status.ok()) {
+    if (last_page > static_cast<std::uint64_t>(num_pages_)) {
+      num_pages_ = static_cast<PageId>(last_page);
+    }
+    stats_.total_writes += page_count;
+  }
+  return status;
+}
+
 Status DiskManager::ProcessWriteRequestsLocked(std::span<PageWriteRequest> requests) {
   for (const auto& request : requests) {
     if (!IsValidPageId(request.page_id)) {
@@ -270,9 +442,11 @@ Status DiskManager::ProcessWriteRequestsLocked(std::span<PageWriteRequest> reque
     if (!status.ok()) {
       return status;
     }
-    if (file_handle_ && std::fflush(file_handle_) != 0) {
-      return Status::IoError("Failed to flush batch write to disk");
+    auto flush_status = FlushFileLocked();
+    if (!flush_status.ok()) {
+      return flush_status;
     }
+    stats_.total_writes += requests.size();
     return Status::Ok();
   }
 #endif
@@ -287,23 +461,13 @@ Status DiskManager::ProcessWriteRequestsLocked(std::span<PageWriteRequest> reque
 }
 
 Status DiskManager::PerformSingleReadLocked(PageId page_id, Page* page) {
-  // Calculate file offset
   const std::int64_t offset = PageIdToOffset(page_id);
-
-  // Seek to page position
-  if (std::fseek(file_handle_, static_cast<long>(offset), SEEK_SET) != 0) {
-    return Status::IoError("Failed to seek to page " + std::to_string(page_id));
+  auto status = ReadRawLocked(offset, page->GetRawPage(), kPageSize);
+  if (!status.ok()) {
+    return status;
   }
 
-  const std::size_t bytes_read = std::fread(page->GetRawPage(), 1, kPageSize, file_handle_);
-
-  if (bytes_read != kPageSize) {
-    ++stats_.checksum_failures;
-    return Status::IoError("Failed to read page " + std::to_string(page_id) + " (read " +
-                           std::to_string(bytes_read) + " bytes)");
-  }
-
-  auto status = ValidateReadResult(page_id, page);
+  status = ValidateReadResult(page_id, page);
   if (!status.ok()) {
     return status;
   }
@@ -314,20 +478,9 @@ Status DiskManager::PerformSingleReadLocked(PageId page_id, Page* page) {
 
 Status DiskManager::PerformSingleWriteLocked(PageId page_id, const Page* page) {
   const std::int64_t offset = PageIdToOffset(page_id);
-
-  if (std::fseek(file_handle_, static_cast<long>(offset), SEEK_SET) != 0) {
-    return Status::IoError("Failed to seek to page " + std::to_string(page_id));
-  }
-
-  const std::size_t bytes_written = std::fwrite(page->GetRawPage(), 1, kPageSize, file_handle_);
-
-  if (bytes_written != kPageSize) {
-    return Status::IoError("Failed to write page " + std::to_string(page_id) + " (wrote " +
-                           std::to_string(bytes_written) + " bytes)");
-  }
-
-  if (std::fflush(file_handle_) != 0) {
-    return Status::IoError("Failed to flush page " + std::to_string(page_id) + " to disk");
+  auto status = WriteRawLocked(offset, page->GetRawPage(), kPageSize);
+  if (!status.ok()) {
+    return status;
   }
 
   ++stats_.total_writes;
@@ -359,31 +512,15 @@ PageId DiskManager::AllocatePage() {
   // New pages are appended to the end of the file
   const PageId new_page_id = num_pages_ + 1;
 
-  // Grow file by one page
-  // Seek to end and write a zero page
   const std::int64_t offset = PageIdToOffset(new_page_id);
 
-  if (std::fseek(file_handle_, static_cast<long>(offset), SEEK_SET) != 0) {
-    Log(LogLevel::kError, "Failed to seek for page allocation");
-    return kInvalidPageId;
-  }
-
-  // Write empty page (all zeros)
   Page empty_page;
   empty_page.Reset(new_page_id);
   empty_page.UpdateChecksum();
 
-  const std::size_t bytes_written =
-      std::fwrite(empty_page.GetRawPage(), 1, kPageSize, file_handle_);
-
-  if (bytes_written != kPageSize) {
-    Log(LogLevel::kError, "Failed to allocate page");
-    return kInvalidPageId;
-  }
-
-  // CRITICAL: Flush immediately so allocated page is visible to reads
-  if (std::fflush(file_handle_) != 0) {
-    Log(LogLevel::kError, "Failed to flush allocated page");
+  const Status status = WriteRawLocked(offset, empty_page.GetRawPage(), kPageSize);
+  if (!status.ok()) {
+    Log(LogLevel::kError, "Failed to allocate page: " + std::string(status.message()));
     return kInvalidPageId;
   }
 
@@ -397,40 +534,11 @@ PageId DiskManager::AllocatePage() {
 Status DiskManager::Sync() {
   std::lock_guard<std::mutex> lock(mutex_);
 
-  if (!is_open_ || !file_handle_) {
+  if (!is_open_) {
     return Status::Internal("DiskManager not open");
   }
 
-  // Flush stdio buffers
-  if (std::fflush(file_handle_) != 0) {
-    return Status::IoError("fflush failed");
-  }
-
-#ifdef _WIN32
-  // Windows: FlushFileBuffers to ensure data is on disk
-  const int fd = _fileno(file_handle_);
-  if (fd < 0) {
-    return Status::IoError("Invalid file descriptor");
-  }
-  HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
-  if (handle == INVALID_HANDLE_VALUE) {
-    return Status::IoError("Failed to get file handle");
-  }
-  if (!FlushFileBuffers(handle)) {
-    return Status::IoError("FlushFileBuffers failed");
-  }
-#else
-  // POSIX: fsync to ensure data is on disk
-  const int fd = fileno(file_handle_);
-  if (fd < 0) {
-    return Status::IoError("Invalid file descriptor");
-  }
-  if (fsync(fd) != 0) {
-    return Status::IoError("fsync failed");
-  }
-#endif
-
-  return Status::Ok();
+  return FlushFileLocked();
 }
 
 DiskManager::Stats DiskManager::GetStats() const {
@@ -454,6 +562,240 @@ bool DiskManager::IsValidPageId(PageId page_id) const {
 
 std::int64_t DiskManager::PageIdToOffset(PageId page_id) const {
   return static_cast<std::int64_t>(page_id) * kPageSize;
+}
+
+Status DiskManager::ReadRawLocked(std::int64_t offset, void* buffer, std::size_t size) {
+  if (size == 0) {
+    return Status::Ok();
+  }
+  if (!buffer) {
+    return Status::InvalidArgument("Buffer pointer is null");
+  }
+
+  if (use_direct_io_) {
+    if (offset % kPageSize != 0 || size % kPageSize != 0) {
+      return Status::InvalidArgument("Direct I/O requires 4 KB aligned offset/size");
+    }
+    const auto address = reinterpret_cast<std::uintptr_t>(buffer);
+    if (address % kPageSize != 0) {
+      return Status::InvalidArgument("Direct I/O requires 4 KB aligned buffers");
+    }
+
+#ifdef _WIN32
+    if (direct_file_handle_ == INVALID_HANDLE_VALUE) {
+      return Status::Internal("Invalid direct I/O handle");
+    }
+
+    HANDLE handle = static_cast<HANDLE>(direct_file_handle_);
+    std::uint8_t* cursor = static_cast<std::uint8_t*>(buffer);
+    std::size_t remaining = size;
+    std::int64_t current_offset = offset;
+    while (remaining > 0) {
+      const DWORD chunk =
+          static_cast<DWORD>(std::min<std::size_t>(remaining, std::numeric_limits<DWORD>::max()));
+      OVERLAPPED overlapped{};
+      overlapped.Offset = static_cast<DWORD>(current_offset & 0xffffffffu);
+      overlapped.OffsetHigh = static_cast<DWORD>((current_offset >> 32) & 0xffffffffu);
+
+      DWORD bytes_read = 0;
+      if (!ReadFile(handle, cursor, chunk, &bytes_read, &overlapped)) {
+        return Status::IoError("ReadFile failed: error=" + std::to_string(GetLastError()));
+      }
+      if (bytes_read != chunk) {
+        return Status::IoError("Short read encountered during direct I/O");
+      }
+
+      remaining -= bytes_read;
+      cursor += bytes_read;
+      current_offset += bytes_read;
+    }
+#else
+    if (file_descriptor_ < 0) {
+      return Status::Internal("Invalid direct I/O file descriptor");
+    }
+
+    std::uint8_t* cursor = static_cast<std::uint8_t*>(buffer);
+    std::size_t remaining = size;
+    std::int64_t current_offset = offset;
+    while (remaining > 0) {
+      const ssize_t bytes_read = ::pread(file_descriptor_, cursor, remaining, current_offset);
+      if (bytes_read < 0) {
+        return Status::IoError("pread failed: " + std::string(std::strerror(errno)));
+      }
+      if (bytes_read == 0) {
+        return Status::IoError("Unexpected EOF during direct read");
+      }
+      remaining -= static_cast<std::size_t>(bytes_read);
+      cursor += bytes_read;
+      current_offset += bytes_read;
+    }
+#endif
+    return Status::Ok();
+  }
+
+  if (!file_handle_) {
+    return Status::Internal("Buffered file handle is null");
+  }
+
+#ifdef _WIN32
+  if (_fseeki64(file_handle_, offset, SEEK_SET) != 0) {
+    return Status::IoError("Failed to seek for buffered read");
+  }
+#else
+  if (fseeko(file_handle_, offset, SEEK_SET) != 0) {
+    return Status::IoError("Failed to seek for buffered read");
+  }
+#endif
+
+  const std::size_t bytes_read = std::fread(buffer, 1, size, file_handle_);
+  if (bytes_read != size) {
+    return Status::IoError("Buffered read returned insufficient bytes");
+  }
+  return Status::Ok();
+}
+
+Status DiskManager::WriteRawLocked(std::int64_t offset, const void* buffer, std::size_t size) {
+  if (size == 0) {
+    return Status::Ok();
+  }
+  if (!buffer) {
+    return Status::InvalidArgument("Buffer pointer is null");
+  }
+
+  if (use_direct_io_) {
+    if (offset % kPageSize != 0 || size % kPageSize != 0) {
+      return Status::InvalidArgument("Direct I/O requires 4 KB aligned offset/size");
+    }
+    const auto address = reinterpret_cast<std::uintptr_t>(buffer);
+    if (address % kPageSize != 0) {
+      return Status::InvalidArgument("Direct I/O requires 4 KB aligned buffers");
+    }
+
+#ifdef _WIN32
+    if (direct_file_handle_ == INVALID_HANDLE_VALUE) {
+      return Status::Internal("Invalid direct I/O handle");
+    }
+
+    HANDLE handle = static_cast<HANDLE>(direct_file_handle_);
+    const std::uint8_t* cursor = static_cast<const std::uint8_t*>(buffer);
+    std::size_t remaining = size;
+    std::int64_t current_offset = offset;
+    while (remaining > 0) {
+      const DWORD chunk =
+          static_cast<DWORD>(std::min<std::size_t>(remaining, std::numeric_limits<DWORD>::max()));
+      OVERLAPPED overlapped{};
+      overlapped.Offset = static_cast<DWORD>(current_offset & 0xffffffffu);
+      overlapped.OffsetHigh = static_cast<DWORD>((current_offset >> 32) & 0xffffffffu);
+
+      DWORD bytes_written = 0;
+      if (!WriteFile(handle, cursor, chunk, &bytes_written, &overlapped)) {
+        return Status::IoError("WriteFile failed: error=" + std::to_string(GetLastError()));
+      }
+      if (bytes_written != chunk) {
+        return Status::IoError("Short write encountered during direct I/O");
+      }
+
+      remaining -= bytes_written;
+      cursor += bytes_written;
+      current_offset += bytes_written;
+    }
+#else
+    if (file_descriptor_ < 0) {
+      return Status::Internal("Invalid direct I/O file descriptor");
+    }
+
+    const std::uint8_t* cursor = static_cast<const std::uint8_t*>(buffer);
+    std::size_t remaining = size;
+    std::int64_t current_offset = offset;
+    while (remaining > 0) {
+      const ssize_t bytes_written = ::pwrite(file_descriptor_, cursor, remaining, current_offset);
+      if (bytes_written < 0) {
+        return Status::IoError("pwrite failed: " + std::string(std::strerror(errno)));
+      }
+      if (bytes_written == 0) {
+        return Status::IoError("Unexpected zero-byte write during direct I/O");
+      }
+      remaining -= static_cast<std::size_t>(bytes_written);
+      cursor += bytes_written;
+      current_offset += bytes_written;
+    }
+#endif
+  } else {
+    if (!file_handle_) {
+      return Status::Internal("Buffered file handle is null");
+    }
+
+#ifdef _WIN32
+    if (_fseeki64(file_handle_, offset, SEEK_SET) != 0) {
+      return Status::IoError("Failed to seek for buffered write");
+    }
+#else
+    if (fseeko(file_handle_, offset, SEEK_SET) != 0) {
+      return Status::IoError("Failed to seek for buffered write");
+    }
+#endif
+
+    const std::size_t bytes_written = std::fwrite(buffer, 1, size, file_handle_);
+    if (bytes_written != size) {
+      return Status::IoError("Buffered write returned insufficient bytes");
+    }
+  }
+
+  return FlushFileLocked();
+}
+
+Status DiskManager::FlushFileLocked() {
+  if (use_direct_io_) {
+#ifdef _WIN32
+    if (direct_file_handle_ == INVALID_HANDLE_VALUE) {
+      return Status::Internal("Invalid direct I/O handle");
+    }
+    HANDLE handle = static_cast<HANDLE>(direct_file_handle_);
+    if (!FlushFileBuffers(handle)) {
+      return Status::IoError("FlushFileBuffers failed: error=" + std::to_string(GetLastError()));
+    }
+#else
+    if (file_descriptor_ < 0) {
+      return Status::Internal("Invalid direct I/O file descriptor");
+    }
+    if (fsync(file_descriptor_) != 0) {
+      return Status::IoError("fsync failed: " + std::string(std::strerror(errno)));
+    }
+#endif
+    return Status::Ok();
+  }
+
+  if (!file_handle_) {
+    return Status::Internal("Buffered file handle is null");
+  }
+
+  if (std::fflush(file_handle_) != 0) {
+    return Status::IoError("fflush failed");
+  }
+
+#ifdef _WIN32
+  const int fd = _fileno(file_handle_);
+  if (fd < 0) {
+    return Status::IoError("Invalid file descriptor for FlushFileBuffers");
+  }
+  HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+  if (handle == INVALID_HANDLE_VALUE) {
+    return Status::IoError("Failed to translate FILE* to HANDLE");
+  }
+  if (!FlushFileBuffers(handle)) {
+    return Status::IoError("FlushFileBuffers failed: error=" + std::to_string(GetLastError()));
+  }
+#else
+  const int fd = fileno(file_handle_);
+  if (fd < 0) {
+    return Status::IoError("Invalid file descriptor for fsync");
+  }
+  if (fsync(fd) != 0) {
+    return Status::IoError("fsync failed: " + std::string(std::strerror(errno)));
+  }
+#endif
+
+  return Status::Ok();
 }
 
 #if defined(CORE_ENGINE_HAS_IO_URING)

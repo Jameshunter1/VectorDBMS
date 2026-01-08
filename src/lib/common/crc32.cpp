@@ -1,16 +1,11 @@
-#include <core_engine/storage/page.hpp>
-
 #include <core_engine/common/crc32.hpp>
 
-#include <cstddef>
-#include <cstring>
-#include <span>
+namespace core_engine::crc32 {
 
-namespace core_engine {
+namespace {
 
-// CRC32 lookup table (standard polynomial 0x04C11DB7)
-// Precomputed for performance (avoid recalculating on every checksum)
-static constexpr std::uint32_t kCRC32Table[256] = {
+// CRC32 lookup table (polynomial 0x04C11DB7)
+constexpr std::uint32_t kTable[256] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
     0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988, 0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91,
     0x1db71064, 0x6ab020f2, 0xf3b97148, 0x84be41de, 0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7,
@@ -44,38 +39,16 @@ static constexpr std::uint32_t kCRC32Table[256] = {
     0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605, 0xcdd70693, 0x54de5729, 0x23d967bf,
     0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d};
 
-Page::Page() {
-  // Initialize page to all zeros
-  Reset();
+} // namespace
+
+std::uint32_t Update(std::uint32_t state, std::span<const std::byte> bytes) {
+  std::uint32_t crc = state;
+  for (const auto& byte : bytes) {
+    const std::uint8_t value = static_cast<std::uint8_t>(byte);
+    const std::uint8_t index = (crc ^ value) & 0xFFu;
+    crc = (crc >> 8) ^ kTable[index];
+  }
+  return crc;
 }
 
-std::uint32_t Page::ComputeChecksum() const {
-  const auto* header_bytes = reinterpret_cast<const std::byte*>(&header_);
-  const auto header_before_checksum = std::span(header_bytes, offsetof(PageHeader, checksum));
-
-  const auto* header_after_ptr =
-      header_bytes + offsetof(PageHeader, checksum) + sizeof(std::uint32_t);
-  const auto header_after_checksum =
-      std::span(header_after_ptr,
-                sizeof(PageHeader) - offsetof(PageHeader, checksum) - sizeof(std::uint32_t));
-
-  const auto data_bytes = std::span(reinterpret_cast<const std::byte*>(data_.data()), data_.size());
-
-  std::uint32_t crc = crc32::kDefaultSeed;
-  crc = crc32::Update(crc, header_before_checksum);
-  crc = crc32::Update(crc, header_after_checksum);
-  crc = crc32::Update(crc, data_bytes);
-  return crc32::Finalize(crc);
-}
-
-void Page::Reset(PageId page_id) {
-  // Clear entire page to zeros
-  std::memset(this, 0, sizeof(Page));
-
-  // Reinitialize header with default values
-  header_ = PageHeader();
-  header_.page_id = page_id;
-  header_.free_space = kPageDataSize;
-}
-
-} // namespace core_engine
+} // namespace core_engine::crc32

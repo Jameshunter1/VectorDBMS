@@ -47,6 +47,7 @@ target_include_directories(core_engine
 target_sources(core_engine
   PRIVATE
     src/lib/common/config.cpp
+    src/lib/common/crc32.cpp
     src/lib/common/status.cpp
     src/lib/common/logger.cpp
     src/lib/catalog/catalog.cpp
@@ -71,7 +72,7 @@ if(CORE_ENGINE_ENABLE_IO_URING AND UNIX AND NOT APPLE)
   find_package(PkgConfig QUIET)
   set(CORE_ENGINE_HAS_IO_URING FALSE)
   if(PkgConfig_FOUND)
-    pkg_check_modules(LIBURING QUIET liburing)
+    pkg_check_modules(LIBURING IMPORTED_TARGET QUIET liburing)
     if(LIBURING_FOUND)
       target_link_libraries(core_engine PRIVATE PkgConfig::LIBURING)
       target_compile_definitions(core_engine PRIVATE CORE_ENGINE_HAS_IO_URING=1)

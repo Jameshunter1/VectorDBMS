@@ -126,6 +126,10 @@ public:
   // Batch write multiple pages leveraging io_uring when available.
   Status WritePagesBatch(std::span<PageWriteRequest> requests);
 
+  // Read/write multiple contiguous pages into/from a raw aligned buffer.
+  Status ReadContiguous(PageId first_page_id, void* buffer, std::size_t page_count);
+  Status WriteContiguous(PageId first_page_id, const void* buffer, std::size_t page_count);
+
   // Allocate a new page (grows the file)
   // Returns: PageId of the newly allocated page
   //
@@ -137,6 +141,10 @@ public:
   // Get current number of pages in the file
   PageId GetNumPages() const {
     return num_pages_;
+  }
+
+  bool UsingDirectIO() const {
+    return use_direct_io_;
   }
 
   // ========== Durability ==========
@@ -169,6 +177,11 @@ private:
   Status ProcessReadRequestsLocked(std::span<PageReadRequest> requests);
   Status ProcessWriteRequestsLocked(std::span<PageWriteRequest> requests);
   Status ValidateReadResult(PageId page_id, Page* page);
+  Status OpenBufferedLocked();
+  Status OpenDirectLocked();
+  Status ReadRawLocked(std::int64_t offset, void* buffer, std::size_t size);
+  Status WriteRawLocked(std::int64_t offset, const void* buffer, std::size_t size);
+  Status FlushFileLocked();
 
 #if defined(CORE_ENGINE_HAS_IO_URING)
   struct IoTask {
@@ -195,6 +208,10 @@ private:
   PageId num_pages_;              // Current number of pages in file
   Options options_;
   int file_descriptor_;
+  bool use_direct_io_;
+#ifdef _WIN32
+  void* direct_file_handle_;
+#endif
 
 #if defined(CORE_ENGINE_HAS_IO_URING)
   bool io_uring_initialized_;

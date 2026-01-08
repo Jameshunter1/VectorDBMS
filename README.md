@@ -28,6 +28,14 @@ cmake --build build -j
 
 > **Note (Linux)**: Install `liburing-dev` to enable the asynchronous disk pipeline. Disable it via `-DCORE_ENGINE_ENABLE_IO_URING=OFF` if building on distributions without liburing.
 
+### Container Targets
+
+- **Dockerfile (Linux)**: Multi-stage build that produces a minimal Ubuntu 22.04 image with `dbweb` and `dbcli`. Use this when you need to bake application changes, ship to registries, or run a single container without Prometheus/Grafana.
+- **Dockerfile.windows**: Windows Server Core container that compiles with MSVC. Use when your production hosts only support Windows containers or you need to validate Windows-specific filesystem behavior.
+- **docker-compose.yml**: Spins up the full stack (Vectis + Prometheus + Grafana) with persistent volumes. Ideal for demos, monitoring, or local ops teams that want metrics/visuals out-of-the-box.
+
+Each artifact shares the same defaults (`/vectis/data` volume, port `8080`, health check against `/api/health`). See [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md#docker-deployment) for advanced flags and environment variables.
+
 ## Features
 
  **Page-based storage** with WAL recovery  

@@ -345,9 +345,16 @@ static const char* kIndexHtml_Part1b = R"HTML(
           </div>
           <button class="btn-primary" onclick="doPutVector()">Insert Vector</button>
           <button class="btn-success" onclick="doGetVector()">Get Vector</button>
+          <p style="margin-top: 10px; font-size: 12px; color: #666;">
+            Vectors must match the configured dimension to pass validation.
+          </p>
           <div style="margin-top: 15px;">
-            <button class="btn-secondary btn-small" onclick="generateRandomVector(128)">Generate Random (128-dim)</button>
-            <button class="btn-secondary btn-small" onclick="generateRandomVector(256)">Generate Random (256-dim)</button>
+            <button class="btn-secondary btn-small" id="vector-random-btn" onclick="generateRandomVector()">
+              Generate Random (<span id="random-dim-label">128</span>-dim)
+            </button>
+            <div style="margin-top: 8px; font-size: 12px; color: #666;">
+              Configured dimension: <span id="configured-dimension">128</span>
+            </div>
           </div>
         </div>
         
@@ -527,6 +534,7 @@ static const char* kIndexHtml_Part2 = R"HTML(
     let filteredEntries = [];
     let currentPage = 1;
     let pageSize = 25;
+    let configuredVectorDimension = 128;
     
     const keyEl = document.getElementById('key');
     const valueEl = document.getElementById('value');
@@ -1042,7 +1050,15 @@ static const char* kIndexHtml_Part3 = R"HTML(
         document.getElementById('vector-dimension').textContent = stats.dimension;
         document.getElementById('vector-metric').textContent = stats.metric || 'N/A';
         document.getElementById('vector-layers').textContent = stats.num_layers;
-        document.getElementById('vector-connections').textContent = stats.avg_connections.toFixed(2);
+
+        const avgConnections = typeof stats.avg_connections === 'number' ? stats.avg_connections : 0;
+        document.getElementById('vector-connections').textContent = avgConnections.toFixed(2);
+
+        if (stats.index_enabled && stats.dimension > 0) {
+          configuredVectorDimension = stats.dimension;
+          document.getElementById('configured-dimension').textContent = stats.dimension;
+          document.getElementById('random-dim-label').textContent = stats.dimension;
+        }
         
         log('✓ Vector stats refreshed', 'info');
       } catch (err) {
@@ -1050,7 +1066,11 @@ static const char* kIndexHtml_Part3 = R"HTML(
       }
     }
 
-    function generateRandomVector(dimension) {
+    function generateRandomVector(dimension = configuredVectorDimension) {
+      if (!dimension || dimension <= 0) {
+        log('Configured vector dimension is invalid', 'error');
+        return;
+      }
       const values = [];
       for (let i = 0; i < dimension; i++) {
         values.push((Math.random() * 2 - 1).toFixed(4));
@@ -1067,6 +1087,7 @@ static const char* kIndexHtml_Part3 = R"HTML(
 
     // Auto-refresh
     refreshStats();
+    refreshVectorStats();
     setInterval(refreshStats, 5000);
   </script>
 </body>
@@ -1086,8 +1107,30 @@ int main(int argc, char** argv) {
   const std::string db_dir = (argc >= 2) ? argv[1] : "./_web_demo";
   const int port = (argc >= 3) ? std::stoi(argv[2]) : 8080;
 
+  std::size_t vector_dimension = 128;
+  if (argc >= 4) {
+    try {
+      std::size_t parsed_dim = std::stoul(argv[3]);
+      if (parsed_dim == 0) {
+        Log(LogLevel::kWarn, "Vector dimension must be greater than zero; defaulting to 128");
+      } else {
+        vector_dimension = parsed_dim;
+      }
+    } catch (...) {
+      Log(LogLevel::kWarn,
+          "Invalid vector dimension '" + std::string(argv[3]) + "', defaulting to 128");
+    }
+  }
+
   Engine engine;
-  auto status = engine.Open(db_dir);
+
+  auto config = core_engine::DatabaseConfig::Embedded(db_dir);
+  config.enable_vector_index = true;
+  config.vector_dimension = vector_dimension;
+  Log(LogLevel::kInfo,
+      "Vector index enabled (dimension=" + std::to_string(config.vector_dimension) + ")");
+
+  auto status = engine.Open(config);
 
   if (!status.ok()) {
     Log(LogLevel::kError, status.ToString());
@@ -1098,8 +1141,11 @@ int main(int argc, char** argv) {
   httplib::Server server;
 
   server.Get("/", [&](const httplib::Request&, httplib::Response& res) {
-    res.set_content("<!DOCTYPE html><html><body><h1>VectorDBMS Web UI</h1></body></html>",
-                    "text/html; charset=utf-8");
+    res.set_content(kIndexHtml, "text/html; charset=utf-8");
+  });
+
+  server.Get("/dashboard", [&](const httplib::Request&, httplib::Response& res) {
+    res.set_content(kIndexHtml, "text/html; charset=utf-8");
   });
 
   Log(LogLevel::kInfo, "Registering vector API endpoints...");

@@ -133,49 +133,83 @@ cmake -B build -S src -DCMAKE_CXX_FLAGS="-march=armv8-a+simd -O3"
 
 ## Docker Deployment
 
-### Single Container
+### Linux Container (`Dockerfile`)
+
+Use the default multi-stage Dockerfile when you want a single self-contained image (CI pipelines, registries, or lightweight dev/staging environments).
 
 ```bash
-# Build image
+# Build image (dbweb + dbcli baked into /vectis)
 docker build -t vectis:latest .
 
 # Run database
 docker run -d \
   --name vectis-db \
   -p 8080:8080 \
-  -v vectis-data:/app/_data \
+  -v vectis-data:/vectis/data \
+  -e VECTIS_BUFFER_POOL_SIZE_MB=256 \
   vectis:latest
 
-# View logs
+# Inspect
 docker logs -f vectis-db
-
-# Execute commands
 docker exec -it vectis-db ./dbcli
 ```
 
-### Production Stack (Docker Compose)
+Key details:
+- Health check hits `http://localhost:8080/api/health` every 30s using `wget`.
+- Binaries live under `/vectis` and the server writes to `/vectis/data` (mounted by default).
+- Best for Linux hosts that just need the database service without monitoring extras.
 
-```yaml
-# docker-compose.yml includes:
-services:
-  vectis:       # Database (port 8080)
-  prometheus:   # Metrics collector (port 9090)
-  grafana:      # Visualization (port 3000)
+### Windows Container (`Dockerfile.windows`)
+
+Run this when your deployment hosts require Windows Server Core or you need to validate NTFS + direct-I/O behavior.
+
+```powershell
+# Build (requires Windows container runtime)
+docker build -t vectis-win -f Dockerfile.windows .
+
+# Run
+docker run -d `
+  --name vectis-win `
+  -p 8080:8080 `
+  -v vectis-win-data:C:\vectis\data `
+  vectis-win
 ```
+
+MSVC toolchain is installed during the build stage, so expect a longer initial image build. Runtime entrypoint matches Linux (`dbweb.exe data_dir port`).
+
+### Production Stack (`docker-compose.yml`)
+
+Use Compose when you want Grafana dashboards and Prometheus metrics alongside the database.
 
 ```bash
-# Start stack
+# Bring up the stack (Vectis + Prometheus + Grafana)
 docker compose up -d
 
-# Stop stack
+# Tear down
 docker compose down
 
-# View logs
+# Tail logs or scale services
 docker compose logs -f vectis
-
-# Scale (future: multi-instance)
-docker compose up -d --scale vectis=3
+docker compose up -d --scale vectis=2
 ```
+
+Compose defaults:
+- `vectis` service builds from the local Dockerfile, persists data in the `vectis-data` volume, and exposes port 8080.
+- `prometheus` loads scrapes from `monitoring/prometheus.yml` and stores TSDB data in `prometheus-data`.
+- `grafana` boots with pre-provisioned dashboards/datasources under `monitoring/grafana-*` and stores state in `grafana-data`.
+
+### Container Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VECTIS_DATA_DIR` | `/vectis/data` (Linux) / `C:\\vectis\\data` (Windows) | Location for WAL + page files |
+| `VECTIS_PORT` | `8080` | HTTP listener port for dbweb |
+| `VECTIS_HOST` | `0.0.0.0` | Bind address (leave default inside containers) |
+| `VECTIS_BUFFER_POOL_SIZE_MB` | `256` | Buffer pool size exposed via Compose example |
+| `VECTIS_ENABLE_VECTOR_INDEX` | `true` | Enables ANN index initialization at startup |
+| `VECTIS_VECTOR_DIMENSION` | `384` | Required DIM for inserted vectors (dbweb enforces this) |
+
+Set these via `docker run -e KEY=value ...` or under the `environment:` block in `docker-compose.yml` to tailor deployments.
 
 ### Monitoring Setup
 
