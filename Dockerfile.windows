@@ -20,19 +20,20 @@ RUN choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \
 WORKDIR C:\\build
 COPY . .
 
-# Build the project
-RUN cmake --preset windows-vs2022-x64-release -S src && \
-    cmake --build build/windows-vs2022-x64-release --config Release -j
+# Build the project (disable tests/benchmarks for faster builds)
+RUN cmake -B build -S src -DCMAKE_BUILD_TYPE=Release \
+ -DCORE_ENGINE_BUILD_TESTS=OFF \
+ -DCORE_ENGINE_BUILD_BENCHMARKS=OFF && \
+ cmake --build build --config Release -j
 
 # Stage 2: Runtime image
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
 WORKDIR C:\\vectis
 
-# Copy built executables
-COPY --from=builder C:\\build\\build\\windows-vs2022-x64-release\\Release\\dbweb.exe .
-COPY --from=builder C:\\build\\build\\windows-vs2022-x64-release\\Release\\dbcli.exe .
-COPY --from=builder C:\\build\\build\\windows-vs2022-x64-release\\Release\\core_engine.dll .
+# Copy built executables (VS multi-config: executables in build/Release/)
+COPY --from=builder C:\\build\\build\\Release\\dbweb.exe .
+COPY --from=builder C:\\build\\build\\Release\\dbcli.exe .
 
 # Create data directory
 RUN mkdir C:\\vectis\\data

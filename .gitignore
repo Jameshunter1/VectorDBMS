@@ -29,3 +29,25 @@ CTestTestfile.cmake
 
 # Catch2 / Benchmark fetch content (if used)
 _testing/
+
+# Test databases and demo directories
+test_batch_db/
+_web_demo/
+--db=/
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Local VS Code settings (workspace settings can be shared)
+.vscode/*.log
+.vscode/settings.json

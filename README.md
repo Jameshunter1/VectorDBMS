@@ -8,17 +8,23 @@
 
 ## Quick Start
 
-`ash
+```bash
 # Docker (30 seconds)
 docker compose up -d
 curl http://localhost:8080/api/put?key=hello&value=world
 
-# Local build (5 minutes)
+# Local build - Windows
 git clone https://github.com/Jameshunter1/VectorDBMS.git && cd VectorDBMS
 cmake --preset windows-vs2022-x64-debug -S src
 cmake --build build/windows-vs2022-x64-debug --config Debug
 .\build\windows-vs2022-x64-debug\Debug\dbcli.exe
-`
+
+# Local build - Linux/macOS
+git clone https://github.com/Jameshunter1/VectorDBMS.git && cd VectorDBMS
+cmake -B build -S src -DCMAKE_BUILD_TYPE=Debug -GNinja
+cmake --build build -j
+./build/dbcli
+```
 
 ## Features
 
@@ -33,23 +39,28 @@ cmake --build build/windows-vs2022-x64-debug --config Debug
 
 | Operation | Throughput | Latency |
 |-----------|------------|---------|
-| PUT | 180K/sec | 5.2 µs |
-| GET (cached) | 850K/sec | 1.1 µs |
-| Vector Search | 12K/sec | 78 µs |
+| PUT | 180K/sec | 5.2 ï¿½s |
+| GET (cached) | 850K/sec | 1.1 ï¿½s |
+| Vector Search | 12K/sec | 78 ï¿½s |
 
 ## API
 
-`ash
-# HTTP
-curl -X POST \"http://localhost:8080/api/put?key=k&value=v\"
-curl \"http://localhost:8080/api/get?key=k\"
+```bash
+# HTTP REST API
+curl -X POST "http://localhost:8080/api/put?key=mykey&value=myvalue"
+curl "http://localhost:8080/api/get?key=mykey"
+curl "http://localhost:8080/api/stats"
+```
 
-# C++
+```cpp
+// C++ Library
 #include <core_engine/engine.hpp>
-Engine engine; engine.Open(\"./db\");
-engine.Put(\"key\", \"value\");
-auto val = engine.Get(\"key\");
-`
+
+core_engine::Engine engine;
+engine.Open("./mydb");
+engine.Put("key", "value");
+auto value = engine.Get("key");
+```
 
 ## Documentation
 
@@ -67,13 +78,14 @@ auto val = engine.Get(\"key\");
 
 ## Contributing
 
-`ash
+```bash
 git checkout -b feature/my-feature
 # Make changes, add tests
-ctest --test-dir build -C Debug
-git commit -m \"Add feature X\"
-# Create pull request
-`
+ctest --test-dir build -C Debug --output-on-failure
+git commit -m "feat: Add feature X"
+git push origin feature/my-feature
+# Create pull request on GitHub
+```
 
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | [Code of Conduct](docs/CODE_OF_CONDUCT.md)
 

@@ -1,0 +1,83 @@
+{
+  "dashboard": {
+    "title": "Vectis Database Metrics",
+    "tags": ["vectis", "database"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(core_engine_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "GET Operations",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "core_engine_total_get_operations",
+            "legendFormat": "Total GET operations"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "PUT Operations",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "core_engine_total_put_operations",
+            "legendFormat": "Total PUT operations"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Average Latency",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "core_engine_avg_get_latency_microseconds",
+            "legendFormat": "GET (μs)"
+          },
+          {
+            "expr": "core_engine_avg_put_latency_microseconds",
+            "legendFormat": "PUT (μs)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Page Statistics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "core_engine_total_pages",
+            "legendFormat": "Total Pages"
+          },
+          {
+            "expr": "core_engine_total_reads",
+            "legendFormat": "Total Reads"
+          },
+          {
+            "expr": "core_engine_total_writes",
+            "legendFormat": "Total Writes"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      }
+    ],
+    "schemaVersion": 27,
+    "version": 1
+  }
+}

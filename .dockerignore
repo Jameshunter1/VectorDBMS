@@ -47,3 +47,18 @@ CTestTestfile.cmake
 *.tmp
 *.temp
 *~
+
+# Demo scripts and test data
+demo_*.ps1
+test_batch_db/
+_web_demo/
+--db=/
+
+# Scripts (not needed in container)
+scripts/
+format.ps1
+format-check.ps1
+generate_test_data.ps1
+
+# Python SDK (separate container)
+python-sdk/

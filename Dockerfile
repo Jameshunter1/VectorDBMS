@@ -21,7 +21,9 @@ WORKDIR /build
 COPY . .
 
 # Build the project
-RUN cmake -B build -S src -DCMAKE_BUILD_TYPE=Release -GNinja && \
+RUN cmake -B build -S src -DCMAKE_BUILD_TYPE=Release -GNinja \
+ -DCORE_ENGINE_BUILD_TESTS=OFF \
+ -DCORE_ENGINE_BUILD_BENCHMARKS=OFF && \
     cmake --build build -j$(nproc)
 
 # Runtime image
@@ -31,14 +33,14 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y \
     libstdc++6 \
     ca-certificates \
+ wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /vectis
 
-# Copy built executables (Ninja puts them directly in build/, not build/Release/)
+# Copy built executables (Ninja single-config: executables in build/ directly)
 COPY --from=builder /build/build/dbweb ./dbweb
 COPY --from=builder /build/build/dbcli ./dbcli
-# Note: core_engine is a static library, not needed at runtime
 
 # Create data directory
 RUN mkdir -p /vectis/data
