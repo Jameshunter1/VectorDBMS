@@ -20,10 +20,9 @@ Describe the solution you'd like to see implemented.
 Describe any alternative solutions or features you've considered.
 
 ## Benefits
-Who would benefit from this feature? How would it improve the project?
+What are the benefits of implementing this feature?
 
 ## Implementation Details
-(Optional) If you have ideas about how this could be implemented:
 - Changes to existing APIs
 - New components needed
 - Performance considerations
@@ -41,7 +40,3 @@ Are there any related issues or pull requests?
 ## Additional Context
 Add any other context, mockups, diagrams, or screenshots about the feature request here.
 
-## Checklist
-- [ ] I have searched existing issues to make sure this isn't a duplicate
-- [ ] I have considered if this could be implemented as a plugin/extension
-- [ ] I am willing to help implement this feature

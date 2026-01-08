@@ -32,10 +32,18 @@ public:
 
   // Access
   value_type& operator[](std::size_t index) {
+#if defined(_DEBUG)
+    return data_.at(index);
+#else
     return data_[index];
+#endif
   }
   const value_type& operator[](std::size_t index) const {
+#if defined(_DEBUG)
+    return data_.at(index);
+#else
     return data_[index];
+#endif
   }
 
   std::size_t dimension() const {

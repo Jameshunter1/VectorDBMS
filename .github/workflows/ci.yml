@@ -40,7 +40,7 @@ jobs:
 
    - name: Run Benchmarks (Release only)
      if: matrix.build_type == 'Release'
-     continue-on-error: true  # Don't fail CI if benchmarks have issues
+     continue-on-error: true # Don't fail CI if benchmarks have issues
      run: |
       .\build\ci-Release\benchmarks\Release\core_engine_benchmarks.exe --benchmark_min_time=0.01s
 

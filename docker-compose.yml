@@ -1,9 +1,8 @@
 # Docker Compose configuration for Vectis Database
+# Purpose:Used to package and deploy Vectis with optional Prometheus and Grafana services for monitoring.
+# When to use: For local development, testing, or small-scale deployments where easy setup of monitoring is desired.
 # Usage: docker compose up -d
 # (Note: Use 'docker compose' not 'docker-compose' - V2 syntax)
-
-version: '3.8'
-
 services:
   vectis:
     build:

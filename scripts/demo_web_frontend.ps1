@@ -69,15 +69,16 @@ foreach ($entry in $rangeResponse.entries) {
 }
 
 # 5. Vector Search (if enabled)
-Write-Host "------------------------------------------------------------
-Write-Host "────────────────────────────────────────────────────────" -ForegroundColor Gray
+Write-Host "`n[5] VECTOR OPERATIONS (IF ENABLED)" -ForegroundColor Yellow
+Write-Host "------------------------------------------------------------" -ForegroundColor Gray
 $vector = @(1..128 | ForEach-Object { Get-Random -Minimum 0.0 -Maximum 1.0 })
-$vectorJson = @{ key = "doc:vector1"; vector = $vector } | ConvertTo-Json -Compress
+$vectorBody = @{ key = "doc:vector1"; vector = $vector } | ConvertTo-Json -Compress
+
 try {
-    $vectorRespons+ Added vector 'doc:vector1' (128D)" -ForegroundColor Green
+    Invoke-RestMethod -Uri "$baseUrl/api/vector/add" -Method Post -Body $vectorBody -ContentType "application/json"
+    Write-Host "  + Added vector 'doc:vector1' (128D)" -ForegroundColor Green
 } catch {
-    Write-Host "  !
-    Write-Host "  ⚠ Vector operations not enabled in config" -ForegroundColor Yellow
+    Write-Host "  ! Vector endpoint not available or vector operations disabled" -ForegroundColor Yellow
 }
 
 # 6. Database Statistics
@@ -104,12 +105,12 @@ Write-Host "  ... (50+ metrics available)" -ForegroundColor Gray
 # 8. Delete Operations
 Write-Host "`n[8] DELETE OPERATIONS" -ForegroundColor Yellow
 Write-Host "------------------------------------------------------------" -ForegroundColor Gray
-$deleteResponse = Invoke-RestMethod -Uri "$baseUrl/api/delete?key=test_100" -Method Delete
+Invoke-RestMethod -Uri "$baseUrl/api/delete?key=test_100" -Method Delete
 Write-Host "  + DELETE test_100" -ForegroundColor Green
 
 # Verify deletion
 try {
-    $getResponse = Invoke-RestMethod -Uri "$baseUrl/api/get?key=test_100"
+    Invoke-RestMethod -Uri "$baseUrl/api/get?key=test_100"
     Write-Host "  x ERROR: Key still exists!" -ForegroundColor Red
 } catch {
     Write-Host "  + Verified: Key no longer exists" -ForegroundColor Green

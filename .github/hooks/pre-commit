@@ -9,4 +9,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Automatically stage changes made by the formatting script
+echo "Staging changes made by clang-format..."
+git add .
+
 echo "clang-format completed successfully."

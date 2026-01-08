@@ -26,17 +26,18 @@ function New-RandomVector {
 }
 
 # Helper function to PUT a vector
-function Put-Vector {
-    param([string]$key, [array]$vector)
-    $vectorStr = $vector -join ","
-    $uri = "$baseUrl/api/vector/put"
+function Add{
+    param(
+        [string]$key,
+        [float[]]$vector
+    )
+    $vectorStr = $vector -join ", "
+    $uri = "$baseUrl/api/vector/put?key=$key&vector=$vectorStr"
     try {
-        $body = @{ key = $key; vector = $vectorStr }
-        $null = Invoke-RestMethod -Uri $uri -Method Post -Body $body
+        Invoke-RestMethod -Uri $uri -Method Post -ContentType "application/json" | Out-Null
         return $true
-    }
-    catch {
-        Write-Host "Error inserting $($key): $_" -ForegroundColor Red
+    } catch {
+        Write-Host "Error inserting $key : $_" -ForegroundColor Red
         return $false
     }
 }
@@ -49,7 +50,7 @@ $users = @("user:alice", "user:bob", "user:charlie", "user:diana", "user:eve")
 $userCount = 0
 foreach ($user in $users) {
     $vec = New-RandomVector -dim 128
-    $result = Put-Vector -key $user -vector $vec
+    $result = Add-Vector -key $user -vector $vec
     if ($result -eq $true) {
         $userCount++
         Write-Host "  ✓ Inserted $user" -ForegroundColor Green
@@ -70,7 +71,7 @@ $docs = @(
 $docCount = 0
 foreach ($doc in $docs) {
     $vec = New-RandomVector -dim 128
-    $result = Put-Vector -key $doc -vector $vec
+    $result = Add-Vector -key $doc -vector $vec
     if ($result -eq $true) {
         $docCount++
         Write-Host "  ✓ Inserted $doc" -ForegroundColor Green
@@ -90,7 +91,7 @@ $images = @(
 $imgCount = 0
 foreach ($img in $images) {
     $vec = New-RandomVector -dim 128
-    $result = Put-Vector -key $img -vector $vec
+    $result = Add-Vector -key $img -vector $vec
     if ($result -eq $true) {
         $imgCount++
         Write-Host "  ✓ Inserted $img" -ForegroundColor Green
