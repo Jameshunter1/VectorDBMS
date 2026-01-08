@@ -68,23 +68,23 @@ std::vector<std::byte> UpdateLogRecord::Serialize() const {
       base_size + sizeof(PageId) + sizeof(std::size_t) * 2 + old_data.size() + new_data.size();
   buffer.resize(total_size);
 
-  std::size_t offset = base_size;
-  std::memcpy(buffer.data() + offset, &page_id, sizeof(PageId));
-  offset += sizeof(PageId);
+  std::size_t write_offset = base_size;
+  std::memcpy(buffer.data() + write_offset, &page_id, sizeof(PageId));
+  write_offset += sizeof(PageId);
 
-  std::memcpy(buffer.data() + offset, &this->offset, sizeof(std::size_t));
-  offset += sizeof(std::size_t);
+  std::memcpy(buffer.data() + write_offset, &this->offset, sizeof(std::size_t));
+  write_offset += sizeof(std::size_t);
 
-  std::memcpy(buffer.data() + offset, &length, sizeof(std::size_t));
-  offset += sizeof(std::size_t);
+  std::memcpy(buffer.data() + write_offset, &length, sizeof(std::size_t));
+  write_offset += sizeof(std::size_t);
 
   if (!old_data.empty()) {
-    std::memcpy(buffer.data() + offset, old_data.data(), old_data.size());
-    offset += old_data.size();
+    std::memcpy(buffer.data() + write_offset, old_data.data(), old_data.size());
+    write_offset += old_data.size();
   }
 
   if (!new_data.empty()) {
-    std::memcpy(buffer.data() + offset, new_data.data(), new_data.size());
+    std::memcpy(buffer.data() + write_offset, new_data.data(), new_data.size());
   }
 
   return buffer;
@@ -100,22 +100,22 @@ std::vector<std::byte> CLRLogRecord::Serialize() const {
       base_size + sizeof(PageId) + sizeof(std::size_t) * 2 + undo_data.size() + sizeof(LSN);
   buffer.resize(total_size);
 
-  std::size_t offset = base_size;
-  std::memcpy(buffer.data() + offset, &page_id, sizeof(PageId));
-  offset += sizeof(PageId);
+  std::size_t write_offset = base_size;
+  std::memcpy(buffer.data() + write_offset, &page_id, sizeof(PageId));
+  write_offset += sizeof(PageId);
 
-  std::memcpy(buffer.data() + offset, &this->offset, sizeof(std::size_t));
-  offset += sizeof(std::size_t);
+  std::memcpy(buffer.data() + write_offset, &this->offset, sizeof(std::size_t));
+  write_offset += sizeof(std::size_t);
 
-  std::memcpy(buffer.data() + offset, &length, sizeof(std::size_t));
-  offset += sizeof(std::size_t);
+  std::memcpy(buffer.data() + write_offset, &length, sizeof(std::size_t));
+  write_offset += sizeof(std::size_t);
 
   if (!undo_data.empty()) {
-    std::memcpy(buffer.data() + offset, undo_data.data(), undo_data.size());
-    offset += undo_data.size();
+    std::memcpy(buffer.data() + write_offset, undo_data.data(), undo_data.size());
+    write_offset += undo_data.size();
   }
 
-  std::memcpy(buffer.data() + offset, &undo_next_lsn, sizeof(LSN));
+  std::memcpy(buffer.data() + write_offset, &undo_next_lsn, sizeof(LSN));
 
   return buffer;
 }

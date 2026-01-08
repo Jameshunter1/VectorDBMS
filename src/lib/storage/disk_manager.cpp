@@ -53,10 +53,11 @@ Status DiskManager::Open() {
   // Check if file exists to determine initial page count
   bool file_exists = fs::exists(db_file_);
 
-  file_handle_ = _wfopen(db_file_.wstring().c_str(), L"rb+");
-  if (!file_handle_ && !file_exists) {
+  // Use _wfopen_s for security compliance
+  errno_t err = _wfopen_s(&file_handle_, db_file_.wstring().c_str(), L"rb+");
+  if (err != 0 && !file_exists) {
     // File doesn't exist, create it
-    file_handle_ = _wfopen(db_file_.wstring().c_str(), L"wb+");
+    err = _wfopen_s(&file_handle_, db_file_.wstring().c_str(), L"wb+");
   }
 
 #else

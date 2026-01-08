@@ -13,8 +13,14 @@ namespace {
 
 std::string TimeToString(std::chrono::system_clock::time_point tp) {
   auto time_t = std::chrono::system_clock::to_time_t(tp);
+  std::tm tm_buf{};
+#ifdef _WIN32
+  localtime_s(&tm_buf, &time_t);
+#else
+  localtime_r(&time_t, &tm_buf);
+#endif
   std::ostringstream oss;
-  oss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
+  oss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
   return oss.str();
 }
 
@@ -308,8 +314,14 @@ void AuditLogger::Rotate() {
   // Rename old file
   auto timestamp = std::chrono::system_clock::now();
   auto time_t = std::chrono::system_clock::to_time_t(timestamp);
+  std::tm tm_buf{};
+#ifdef _WIN32
+  localtime_s(&tm_buf, &time_t);
+#else
+  localtime_r(&time_t, &tm_buf);
+#endif
   std::ostringstream oss;
-  oss << log_file_path_ << "." << std::put_time(std::localtime(&time_t), "%Y%m%d%H%M%S");
+  oss << log_file_path_ << "." << std::put_time(&tm_buf, "%Y%m%d%H%M%S");
   fs::rename(log_file_path_, oss.str());
 
   // Open new file

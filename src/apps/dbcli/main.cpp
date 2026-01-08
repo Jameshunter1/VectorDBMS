@@ -154,7 +154,8 @@ void InteractiveMode(core_engine::Engine& engine, const std::string& db_path) {
     command_count++;
     auto args = SplitArgs(line);
     std::string cmd = args[0];
-    std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
+    std::transform(cmd.begin(), cmd.end(), cmd.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
     // Commands
     if (cmd == "quit" || cmd == "exit") {

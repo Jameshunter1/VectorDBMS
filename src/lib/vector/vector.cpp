@@ -138,7 +138,8 @@ float DotProduct(const Vector& a, const Vector& b) {
 
 DistanceMetric ParseDistanceMetric(const std::string& name) {
   std::string lower_name = name;
-  std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
+  std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
   if (lower_name == "cosine")
     return DistanceMetric::kCosine;

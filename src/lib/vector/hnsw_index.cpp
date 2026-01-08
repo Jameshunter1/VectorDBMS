@@ -330,7 +330,7 @@ std::string HNSWIndex::Serialize() const {
 }
 
 HNSWIndex HNSWIndex::Deserialize(const std::string& data) {
-  // TODO: Implement deserialization
+  (void)data; // Unused parameter - TODO: Implement deserialization
   // For now, return empty index
   Params params;
   params.dimension = 128; // Default
