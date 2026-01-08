@@ -78,7 +78,7 @@ cmake --build build/windows-vs2022-x64-debug --config Debug
 ctest --test-dir build/windows-vs2022-x64-debug -C Debug --output-on-failure  # ⚠️ -C Debug REQUIRED
 ```
 
-**Linux/macOS (Ninja/Make)** - Single-config generator:
+**Linux/macOS (Make or Ninja)** - Single-config generator:
 ```bash
 cmake -B build -S src -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j

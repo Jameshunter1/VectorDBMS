@@ -8,28 +8,6 @@
   },
   "configurePresets": [
     {
-      "name": "windows-msvc-debug",
-      "displayName": "Windows MSVC Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/../build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CORE_ENGINE_BUILD_TESTS": "ON",
-        "CORE_ENGINE_BUILD_BENCHMARKS": "ON"
-      }
-    },
-    {
-      "name": "windows-msvc-release",
-      "displayName": "Windows MSVC Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/../build/${presetName}",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CORE_ENGINE_BUILD_TESTS": "ON",
-        "CORE_ENGINE_BUILD_BENCHMARKS": "OFF"
-      }
-    },
-    {
       "name": "windows-vs2022-x64-debug",
       "displayName": "Windows VS2022 x64 Debug",
       "generator": "Visual Studio 17 2022",
@@ -54,14 +32,6 @@
   ],
   "buildPresets": [
     {
-      "name": "debug",
-      "configurePreset": "windows-msvc-debug"
-    },
-    {
-      "name": "release",
-      "configurePreset": "windows-msvc-release"
-    },
-    {
       "name": "vs-debug",
       "configurePreset": "windows-vs2022-x64-debug",
       "configuration": "Debug"
@@ -73,11 +43,6 @@
     }
   ],
   "testPresets": [
-    {
-      "name": "debug",
-      "configurePreset": "windows-msvc-debug",
-      "output": { "outputOnFailure": true }
-    },
     {
       "name": "vs-debug",
       "configurePreset": "windows-vs2022-x64-debug",

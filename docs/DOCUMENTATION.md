@@ -92,7 +92,7 @@ ctest --test-dir build/windows-vs2022-x64-debug -C Debug --output-on-failure
 .\build\windows-vs2022-x64-debug\Debug\dbweb.exe --port 8080
 ```
 
-### Linux/macOS (Ninja/Make)
+### Linux/macOS (Make or Ninja)
 
 ```bash
 # Configure

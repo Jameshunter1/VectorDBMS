@@ -21,7 +21,7 @@ cmake --build build/windows-vs2022-x64-debug --config Debug
 
 # Local build - Linux/macOS
 git clone https://github.com/Jameshunter1/VectorDBMS.git && cd VectorDBMS
-cmake -B build -S src -DCMAKE_BUILD_TYPE=Debug -GNinja
+cmake -B build -S src -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j
 ./build/dbcli
 ```

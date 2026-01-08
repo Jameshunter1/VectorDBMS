@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /vectis
 
-# Copy built executables (Ninja single-config: executables in build/ directly)
+# Copy built executables (single-config generator outputs to build/ directly)
 COPY --from=builder /build/build/dbweb ./dbweb
 COPY --from=builder /build/build/dbcli ./dbcli
 
