@@ -183,7 +183,8 @@ TEST_CASE("Fixed Buffers: I/O Operations", "[storage][fixed_buffers][.]") {
     REQUIRE(page_id != kInvalidPageId);
 
     // Write some data
-    std::strcpy(page->GetData(), "Hello from fixed buffers!");
+    const char* test_data = "Hello from fixed buffers!";
+    std::memcpy(page->GetData(), test_data, std::strlen(test_data) + 1);
     page->UpdateChecksum();
 
     // Unpin and flush
@@ -231,7 +232,7 @@ TEST_CASE("Fixed Buffers: I/O Operations", "[storage][fixed_buffers][.]") {
       REQUIRE(page != nullptr);
 
       std::string data = "Page " + std::to_string(i);
-      std::strcpy(page->GetData(), data.c_str());
+      std::memcpy(page->GetData(), data.c_str(), data.size() + 1);
       page->UpdateChecksum();
 
       page_ids.push_back(page_id);
@@ -288,7 +289,8 @@ TEST_CASE("Fixed Buffers: Fallback to Dynamic Buffers", "[storage][fixed_buffers
     Page* page = bpm.NewPage(&page_id);
     REQUIRE(page != nullptr);
 
-    std::strcpy(page->GetData(), "Dynamic buffer test");
+    const char* test_data = "Dynamic buffer test";
+    std::memcpy(page->GetData(), test_data, std::strlen(test_data) + 1);
     page->UpdateChecksum();
 
     REQUIRE(bpm.UnpinPage(page_id, true));
