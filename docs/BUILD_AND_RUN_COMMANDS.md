@@ -22,13 +22,27 @@ Use these commands from the repository root to configure, build, and run the dbw
 
    Passing a third argument lets you change the required vector dimension (e.g., `256` for 256-D embeddings).
 
-4. Stop a previously running instance (if the EXE is locked during rebuilds):
+4. Smoke-test the endpoints from another shell to verify the UI backend is alive:
+
+   ```powershell
+   Invoke-WebRequest -UseBasicParsing http://localhost:8080/api/stats | Select-Object -ExpandProperty Content
+   Invoke-WebRequest -UseBasicParsing http://localhost:8080/api/vector/list | Select-Object -ExpandProperty Content
+   ```
+
+   On macOS/Linux the same verification can be done with curl:
+
+   ```bash
+   curl http://localhost:8080/api/stats
+   curl http://localhost:8080/api/vector/list
+   ```
+
+5. Stop a previously running instance (if the EXE is locked during rebuilds):
 
    ```powershell
    Get-Process dbweb -ErrorAction SilentlyContinue | Stop-Process
    ```
 
-5. (Optional) Reformat C++ sources before committing:
+6. (Optional) Reformat C++ sources before committing:
 
    ```powershell
    .\format.ps1

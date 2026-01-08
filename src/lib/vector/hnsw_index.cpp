@@ -321,6 +321,21 @@ HNSWIndex::Stats HNSWIndex::GetStats() const {
   return stats;
 }
 
+std::vector<std::pair<std::string, Vector>> HNSWIndex::GetAllVectors() const {
+  std::shared_lock lock(mutex_);
+
+  std::vector<std::pair<std::string, Vector>> vectors;
+  vectors.reserve(nodes_.size());
+
+  for (const auto& node : nodes_) {
+    if (!node.deleted) {
+      vectors.emplace_back(node.key, node.vector);
+    }
+  }
+
+  return vectors;
+}
+
 // ====== Serialization (Placeholder) ======
 
 std::string HNSWIndex::Serialize() const {

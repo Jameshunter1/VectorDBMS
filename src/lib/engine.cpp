@@ -669,6 +669,14 @@ Engine::BatchGetVectors(const std::vector<std::string>& keys) {
   return results;
 }
 
+std::vector<std::pair<std::string, vector::Vector>> Engine::GetAllVectors() const {
+  if (!vector_index_) {
+    return {};
+  }
+
+  return vector_index_->GetAllVectors();
+}
+
 Engine::VectorStats Engine::GetVectorStats() const {
   VectorStats stats;
 

@@ -272,23 +272,23 @@ static const char* kIndexHtml_Part1 = R"HTML(
           <div class="header-stat-label">Entries</div>
         </div>
         <div class="header-stat">
-          <div class="header-stat-value" id="header-sstables">0</div>
-          <div class="header-stat-label">SSTables</div>
+          <div class="header-stat-value" id="header-pages">0</div>
+          <div class="header-stat-label">Pages</div>
         </div>
         <div class="header-stat">
           <div class="header-stat-value" id="header-ops">0</div>
-          <div class="header-stat-label">Total Ops</div>
+          <div class="header-stat-label">Get/Put Ops</div>
         </div>
       </div>
     </div>
     
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('operations')">⚡ Operations</button>
-      <button class="tab" onclick="switchTab('vector')">🔍 Vector Search</button>
-      <button class="tab" onclick="switchTab('browse')">📋 Browse Data</button>
-      <button class="tab" onclick="switchTab('stats')">📊 Statistics</button>
-      <button class="tab" onclick="switchTab('files')">📁 Files</button>
-      <button class="tab" onclick="switchTab('console')">💻 Console</button>
+      <button class="tab active" data-tab="operations" onclick="switchTab('operations', this)">⚡ Operations</button>
+      <button class="tab" data-tab="vector" onclick="switchTab('vector', this)">🔍 Vector Search</button>
+      <button class="tab" data-tab="browse" onclick="switchTab('browse', this)">📋 Browse Data</button>
+      <button class="tab" data-tab="stats" onclick="switchTab('stats', this)">📊 Statistics</button>
+      <button class="tab" data-tab="files" onclick="switchTab('files', this)">📁 Files</button>
+      <button class="tab" data-tab="console" onclick="switchTab('console', this)">💻 Console</button>
     </div>
 )HTML";
 
@@ -405,6 +405,26 @@ static const char* kIndexHtml_Part1b = R"HTML(
         </div>
         <button class="btn-secondary btn-small" onclick="refreshVectorStats()" style="margin-top: 15px;">🔄 Refresh Stats</button>
       </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h3>Bulk Vector Loader</h3>
+        <div class="form-group">
+          <label>Key Prefix</label>
+          <input type="text" id="bulk-vector-prefix" value="vector" placeholder="vector"/>
+        </div>
+        <div class="form-group">
+          <label>Vector Count</label>
+          <input type="number" id="bulk-vector-count" value="25" min="1" max="1000"/>
+        </div>
+        <div class="form-group">
+          <label>Value Range (-1 to 1)</label>
+          <input type="number" id="bulk-vector-range" value="1" min="0.1" max="10" step="0.1" />
+        </div>
+        <button class="btn-primary" onclick="doBulkVectorInsert()">Generate & Insert</button>
+        <p style="margin-top: 10px; font-size: 12px; color: #666;">
+          Random vectors respect the configured dimension and automatically appear in the Browse Data tab.
+        </p>
+      </div>
     </div>
     
     <div id="tab-browse" class="tab-content">
@@ -458,57 +478,57 @@ static const char* kIndexHtml_Part1b = R"HTML(
     <div id="tab-stats" class="tab-content">
       <div class="grid-3">
         <div class="stat-card">
-          <div class="stat-label">MemTable Size</div>
-          <div class="stat-value" id="stat-memtable-size">0 KB</div>
-          <div class="progress-bar"><div class="progress-fill" id="memtable-progress" style="width: 0%"></div></div>
+          <div class="stat-label">Total Pages</div>
+          <div class="stat-value" id="stat-total-pages">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Entries</div>
-          <div class="stat-value" id="stat-entries">0</div>
+          <div class="stat-label">Disk Reads</div>
+          <div class="stat-value" id="stat-disk-reads">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">SSTables</div>
-          <div class="stat-value" id="stat-sstables">0</div>
+          <div class="stat-label">Disk Writes</div>
+          <div class="stat-value" id="stat-disk-writes">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">WAL Size</div>
-          <div class="stat-value" id="stat-wal-size">0 KB</div>
+          <div class="stat-label">Checksum Failures</div>
+          <div class="stat-value" id="stat-checksum-failures">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Reads</div>
-          <div class="stat-value" id="stat-reads">0</div>
+          <div class="stat-label">Total Entries</div>
+          <div class="stat-value" id="stat-db-entries">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Total Writes</div>
-          <div class="stat-value" id="stat-writes">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Bloom Checks</div>
-          <div class="stat-value" id="stat-bloom-checks">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Bloom Hit Rate</div>
-          <div class="stat-value" id="stat-bloom-hitrate">0%</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Avg Read Time</div>
-          <div class="stat-value" id="stat-read-time">0 µs</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Avg Write Time</div>
-          <div class="stat-value" id="stat-write-time">0 µs</div>
+          <div class="stat-label">Get + Put Ops</div>
+          <div class="stat-value" id="stat-total-ops">0</div>
         </div>
       </div>
-      
+
       <div class="card" style="margin-top: 20px;">
-        <h3>Level Statistics</h3>
-        <div id="level-stats"></div>
+        <h3>Latency & Throughput</h3>
+        <div class="grid-3">
+          <div class="stat-card">
+            <div class="stat-label">Avg GET Time</div>
+            <div class="stat-value" id="stat-avg-get">0 µs</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg PUT Time</div>
+            <div class="stat-value" id="stat-avg-put">0 µs</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total GETs</div>
+            <div class="stat-value" id="stat-total-gets">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total PUTs</div>
+            <div class="stat-value" id="stat-total-puts">0</div>
+          </div>
+        </div>
       </div>
     </div>
 )HTML";
 
 // Part 2: Tabs and JavaScript start
-static const char* kIndexHtml_Part2 = R"HTML(    
+static const char* kIndexHtml_Part2a = R"HTML(    
     <div id="tab-files" class="tab-content">
       <div class="card">
         <h3>Database Files</h3>
@@ -532,6 +552,8 @@ static const char* kIndexHtml_Part2 = R"HTML(
     // State
     let allEntries = [];
     let filteredEntries = [];
+    let kvEntries = [];
+    let vectorEntries = [];
     let currentPage = 1;
     let pageSize = 25;
     let configuredVectorDimension = 128;
@@ -540,12 +562,19 @@ static const char* kIndexHtml_Part2 = R"HTML(
     const valueEl = document.getElementById('value');
     const consoleEl = document.getElementById('console');
 
-    function switchTab(tabName) {
+    function switchTab(tabName, buttonEl = null) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      
-      event.target.classList.add('active');
-      document.getElementById('tab-' + tabName).classList.add('active');
+
+      if (buttonEl) {
+        buttonEl.classList.add('active');
+      } else {
+        const fallback = document.querySelector(`.tab[data-tab="${tabName}"]`);
+        if (fallback) fallback.classList.add('active');
+      }
+
+      const target = document.getElementById('tab-' + tabName);
+      if (target) target.classList.add('active');
       
       if (tabName === 'browse') refreshBrowse();
       if (tabName === 'stats') refreshStats();
@@ -571,50 +600,101 @@ static const char* kIndexHtml_Part2 = R"HTML(
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
+    function mergeEntrySources() {
+      allEntries = [...kvEntries, ...vectorEntries];
+      document.getElementById('total-entries').textContent = allEntries.length;
+      const hasSearch = document.getElementById('search-key').value.trim().length > 0;
+      if (hasSearch) {
+        filterEntries();
+      } else {
+        filteredEntries = [...allEntries];
+        currentPage = 1;
+        renderEntries();
+      }
+    }
+
+    function upsertVectorEntry(key, vectorData) {
+      const preview = vectorData.length > 120 ? vectorData.substring(0, 120) + '...' : vectorData;
+      const entry = {
+        key,
+        value: `[vector] ${preview}`,
+        entryType: 'vector',
+        vectorRaw: vectorData
+      };
+      const idx = vectorEntries.findIndex(e => e.key === key);
+      if (idx >= 0) {
+        vectorEntries[idx] = entry;
+      } else {
+        vectorEntries.push(entry);
+      }
+      mergeEntrySources();
+    }
+
+    function removeVectorEntry(key) {
+      vectorEntries = vectorEntries.filter(e => e.key !== key);
+      mergeEntrySources();
+    }
+
     async function refreshStats() {
       try {
         const res = await fetch('/api/stats');
         const stats = await res.json();
         
-        document.getElementById('stat-memtable-size').textContent = formatBytes(stats.memtable_size_bytes);
-        document.getElementById('stat-entries').textContent = stats.memtable_entry_count;
-        document.getElementById('stat-sstables').textContent = stats.sstable_count;
-        document.getElementById('stat-wal-size').textContent = formatBytes(stats.wal_size_bytes);
-        document.getElementById('stat-reads').textContent = stats.total_gets;
-        document.getElementById('stat-writes').textContent = stats.total_puts;
-        document.getElementById('stat-bloom-checks').textContent = stats.bloom_checks;
-        document.getElementById('stat-read-time').textContent = stats.avg_get_time_us + ' µs';
-        document.getElementById('stat-write-time').textContent = stats.avg_put_time_us + ' µs';
-        
-        const hitRate = stats.bloom_checks > 0 
-          ? ((stats.bloom_hits / stats.bloom_checks) * 100).toFixed(1)
-          : 0;
-        document.getElementById('stat-bloom-hitrate').textContent = hitRate + '%';
-        
-        // Progress bar (4 MB = 4194304 bytes)
-        const progress = Math.min((stats.memtable_size_bytes / 4194304) * 100, 100);
-        document.getElementById('memtable-progress').style.width = progress + '%';
-        
-        // Header stats
-        document.getElementById('header-entries').textContent = stats.memtable_entry_count;
-        document.getElementById('header-sstables').textContent = stats.sstable_count;
+        document.getElementById('stat-total-pages').textContent = stats.total_pages;
+        document.getElementById('stat-disk-reads').textContent = stats.total_reads;
+        document.getElementById('stat-disk-writes').textContent = stats.total_writes;
+        document.getElementById('stat-checksum-failures').textContent = stats.checksum_failures;
+        document.getElementById('stat-db-entries').textContent = stats.total_entries;
+        document.getElementById('stat-total-ops').textContent = stats.total_gets + stats.total_puts;
+        document.getElementById('stat-avg-get').textContent = stats.avg_get_time_us.toFixed(2) + ' µs';
+        document.getElementById('stat-avg-put').textContent = stats.avg_put_time_us.toFixed(2) + ' µs';
+        document.getElementById('stat-total-gets').textContent = stats.total_gets;
+        document.getElementById('stat-total-puts').textContent = stats.total_puts;
+
+        document.getElementById('header-entries').textContent = stats.total_entries;
+        document.getElementById('header-pages').textContent = stats.total_pages;
         document.getElementById('header-ops').textContent = stats.total_gets + stats.total_puts;
       } catch (err) {
         log('Failed to refresh stats: ' + err.message, 'error');
       }
     }
 
+)HTML";
+
+static const char* kIndexHtml_Part2b = R"HTML(
+
     async function refreshBrowse() {
       try {
-        const res = await fetch('/api/entries');
-        const data = await res.json();
-        allEntries = data.entries;
-        filteredEntries = [...allEntries];
-        
-        document.getElementById('total-entries').textContent = allEntries.length;
-        
-        currentPage = 1;
-        renderEntries();
+        const [kvRes, vectorRes] = await Promise.all([
+          fetch('/api/entries'),
+          fetch('/api/vector/list')
+        ]);
+
+        if (!kvRes.ok) {
+          throw new Error('Entries API returned ' + kvRes.status);
+        }
+
+        const kvData = await kvRes.json();
+        kvEntries = kvData.entries.map(entry => ({ ...entry, entryType: 'kv' }));
+
+        if (vectorRes.ok) {
+          const vectorData = await vectorRes.json();
+          vectorEntries = vectorData.vectors.map(entry => {
+            const truncated = entry.vector.length > 120
+              ? `${entry.vector.substring(0, 120)}...`
+              : entry.vector;
+            return {
+              key: entry.key,
+              value: `[vector dim=${entry.dimension}] ${truncated}`,
+              entryType: 'vector',
+              vectorRaw: entry.vector
+            };
+          });
+        } else {
+          vectorEntries = [];
+        }
+
+        mergeEntrySources();
       } catch (err) {
         log('Failed to load entries: ' + err.message, 'error');
       }
@@ -622,9 +702,16 @@ static const char* kIndexHtml_Part2 = R"HTML(
 
     function filterEntries() {
       const search = document.getElementById('search-key').value.toLowerCase();
-      filteredEntries = allEntries.filter(e => 
-        e.key.toLowerCase().includes(search) || e.value.toLowerCase().includes(search)
-      );
+      if (!search) {
+        filteredEntries = [...allEntries];
+        currentPage = 1;
+        renderEntries();
+        return;
+      }
+      filteredEntries = allEntries.filter(e => {
+        const valueText = typeof e.value === 'string' ? e.value : JSON.stringify(e.value ?? '');
+        return e.key.toLowerCase().includes(search) || valueText.toLowerCase().includes(search);
+      });
       currentPage = 1;
       renderEntries();
     }
@@ -649,16 +736,26 @@ static const char* kIndexHtml_Part2 = R"HTML(
       const end = Math.min(start + pageSize, filteredEntries.length);
       const pageEntries = filteredEntries.slice(start, end);
       
-      tbody.innerHTML = pageEntries.map(e => `
-        <tr>
-          <td class="entry-key">${escapeHtml(e.key)}</td>
-          <td class="entry-value">${escapeHtml(e.value.length > 100 ? e.value.substring(0, 100) + '...' : e.value)}</td>
-          <td class="entry-actions">
-            <button class="btn-success btn-small" onclick='viewEntry(${JSON.stringify(e.key)})'>View</button>
-            <button class="btn-danger btn-small" onclick='deleteEntry(${JSON.stringify(e.key)})'>Delete</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = pageEntries.map(e => {
+        const entryType = e.entryType || 'kv';
+        const rawValue = typeof e.value === 'string' ? e.value : JSON.stringify(e.value ?? '');
+        const displayValue = rawValue.length > 100 ? rawValue.substring(0, 100) + '...' : rawValue;
+        const keyArg = JSON.stringify(e.key);
+        const typeArg = JSON.stringify(entryType);
+        const viewLabel = entryType === 'vector' ? 'Inspect' : 'View';
+        const deleteLabel = entryType === 'vector' ? 'Remove' : 'Delete';
+        const deleteClass = entryType === 'vector' ? 'btn-secondary' : 'btn-danger';
+        return `
+          <tr>
+            <td class="entry-key">${escapeHtml(e.key)}</td>
+            <td class="entry-value">${escapeHtml(displayValue)}</td>
+            <td class="entry-actions">
+              <button class="btn-success btn-small" onclick='viewEntry(${keyArg}, ${typeArg})'>${viewLabel}</button>
+              <button class="${deleteClass} btn-small" onclick='deleteEntry(${keyArg}, ${typeArg})'>${deleteLabel}</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
       
       // Update pagination
       const totalPages = Math.ceil(filteredEntries.length / pageSize);
@@ -688,21 +785,40 @@ static const char* kIndexHtml_Part2 = R"HTML(
       renderEntries();
     }
 
-    async function viewEntry(key) {
+    async function viewEntry(key, entryType = 'kv') {
+      if (entryType === 'vector') {
+        const entry = vectorEntries.find(v => v.key === key);
+        if (!entry) {
+          log('Vector entry not found in cache', 'error');
+          return;
+        }
+        document.getElementById('vector-key').value = entry.key;
+        document.getElementById('vector-data').value = entry.vectorRaw;
+        switchTab('vector');
+        log(`Viewing vector "${key}"`, 'info');
+        return;
+      }
+
       keyEl.value = key;
       try {
         const res = await fetch('/api/get?key=' + encodeURIComponent(key));
         const value = await res.text();
         valueEl.value = value;
         switchTab('operations');
-        document.querySelector('.tab').click();
         log(`Viewing key: ${key}`, 'info');
       } catch (err) {
         log('Error viewing entry: ' + err.message, 'error');
       }
     }
 
-    async function deleteEntry(key) {
+    async function deleteEntry(key, entryType = 'kv') {
+      if (entryType === 'vector') {
+        if (!confirm(`Remove cached vector "${key}" from Browse Data?`)) return;
+        removeVectorEntry(key);
+        log(`Removed cached vector "${key}"`, 'info');
+        return;
+      }
+
       if (!confirm(`Delete key "${key}"?`)) return;
       
       try {
@@ -779,6 +895,7 @@ static const char* kIndexHtml_Part2 = R"HTML(
         if (res.ok) {
           log(`✓ PUT "${key}"`, 'success');
           await refreshStats();
+          await refreshBrowse();
         } else {
           log(`✗ PUT failed: ${await res.text()}`, 'error');
         }
@@ -865,6 +982,7 @@ static const char* kIndexHtml_Part2 = R"HTML(
       
       log(`✓ Batch complete: ${success}/${lines.length}`, 'success');
       await refreshStats();
+      await refreshBrowse();
     }
 
     async function doBulkInsert() {
@@ -897,6 +1015,7 @@ static const char* kIndexHtml_Part2 = R"HTML(
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       log(`✓ Generated ${success}/${count} in ${duration}s`, 'success');
       await refreshStats();
+      await refreshBrowse();
     }
 
     async function clearDatabase() {
@@ -918,6 +1037,7 @@ static const char* kIndexHtml_Part2 = R"HTML(
         
         log('✓ Database cleared', 'success');
         await refreshStats();
+        vectorEntries = [];
         await refreshBrowse();
       } catch (err) {
         log('Error clearing database: ' + err.message, 'error');
@@ -951,14 +1071,63 @@ static const char* kIndexHtml_Part3 = R"HTML(
         
         if (res.ok) {
           const dimension = vectorData.split(',').length;
+          upsertVectorEntry(key, vectorData);
           log(`✓ Inserted vector "${key}" (${dimension}-dim)`, 'success');
           await refreshVectorStats();
+          await refreshBrowse();
         } else {
           log(`✗ Vector PUT failed: ${await res.text()}`, 'error');
         }
       } catch (err) {
         log('Error: ' + err.message, 'error');
       }
+    }
+
+    async function doBulkVectorInsert() {
+      if (!configuredVectorDimension || configuredVectorDimension <= 0) {
+        log('Vector dimension not available yet. Try refreshing stats.', 'error');
+        return;
+      }
+
+      const prefix = document.getElementById('bulk-vector-prefix').value.trim() || 'vector';
+      const count = Math.max(1, parseInt(document.getElementById('bulk-vector-count').value) || 1);
+      const range = Math.max(0.1, parseFloat(document.getElementById('bulk-vector-range').value) || 1);
+
+      log(`Bulk inserting ${count} vectors with prefix "${prefix}"...`);
+      let success = 0;
+      const start = Date.now();
+
+      for (let i = 0; i < count; i++) {
+        const key = `${prefix}_${Date.now()}_${i}`;
+        const values = buildRandomVector(configuredVectorDimension, range);
+        const vectorPayload = values.join(',');
+
+        try {
+          const res = await fetch('/api/vector/put', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ key, vector: vectorPayload })
+          });
+
+          if (res.ok) {
+            success++;
+            upsertVectorEntry(key, vectorPayload);
+          } else {
+            log(`Vector insert failed for ${key}: ${await res.text()}`, 'error');
+          }
+        } catch (err) {
+          log('Bulk vector insert error: ' + err.message, 'error');
+        }
+
+        if ((i + 1) % 25 === 0) {
+          log(`  Progress ${i + 1}/${count}`, 'info');
+        }
+      }
+
+      const duration = ((Date.now() - start) / 1000).toFixed(2);
+      log(`✓ Bulk vector insert ${success}/${count} (range ±${range}) in ${duration}s`, 'success');
+      await refreshVectorStats();
+      await refreshBrowse();
     }
 
     async function doGetVector() {
@@ -975,7 +1144,9 @@ static const char* kIndexHtml_Part3 = R"HTML(
           const vectorData = await res.text();
           document.getElementById('vector-data').value = vectorData;
           const dimension = vectorData.split(',').length;
+          upsertVectorEntry(key, vectorData);
           log(`✓ Retrieved vector "${key}" (${dimension}-dim)`, 'success');
+          await refreshBrowse();
         } else if (res.status === 404) {
           log(`✗ Vector "${key}" not found`, 'error');
         } else {
@@ -1066,15 +1237,21 @@ static const char* kIndexHtml_Part3 = R"HTML(
       }
     }
 
+    function buildRandomVector(dimension, range = 1) {
+      const values = [];
+      for (let i = 0; i < dimension; i++) {
+        const value = (Math.random() * 2 - 1) * range;
+        values.push(value.toFixed(4));
+      }
+      return values;
+    }
+
     function generateRandomVector(dimension = configuredVectorDimension) {
       if (!dimension || dimension <= 0) {
         log('Configured vector dimension is invalid', 'error');
         return;
       }
-      const values = [];
-      for (let i = 0; i < dimension; i++) {
-        values.push((Math.random() * 2 - 1).toFixed(4));
-      }
+      const values = buildRandomVector(dimension);
       document.getElementById('vector-data').value = values.join(',');
       log(`Generated random ${dimension}-dimensional vector`, 'info');
     }
@@ -1088,6 +1265,8 @@ static const char* kIndexHtml_Part3 = R"HTML(
     // Auto-refresh
     refreshStats();
     refreshVectorStats();
+    refreshBrowse();
+    refreshFiles();
     setInterval(refreshStats, 5000);
   </script>
 </body>
@@ -1095,9 +1274,9 @@ static const char* kIndexHtml_Part3 = R"HTML(
 )HTML";
 
 // Combine the four parts
-static const std::string kIndexHtml = std::string(kIndexHtml_Part1) +
-                                      std::string(kIndexHtml_Part1b) +
-                                      std::string(kIndexHtml_Part2) + std::string(kIndexHtml_Part3);
+static const std::string kIndexHtml =
+    std::string(kIndexHtml_Part1) + std::string(kIndexHtml_Part1b) +
+    std::string(kIndexHtml_Part2a) + std::string(kIndexHtml_Part2b) + std::string(kIndexHtml_Part3);
 
 int main(int argc, char** argv) {
   using core_engine::Engine;
@@ -1139,6 +1318,33 @@ int main(int argc, char** argv) {
 
   std::mutex engine_mutex;
   httplib::Server server;
+
+  auto escape_json = [](const std::string& s) -> std::string {
+    std::string result;
+    result.reserve(s.size());
+    for (char c : s) {
+      switch (c) {
+      case '"':
+        result += "\\\"";
+        break;
+      case '\\':
+        result += "\\\\";
+        break;
+      case '\n':
+        result += "\\n";
+        break;
+      case '\r':
+        result += "\\r";
+        break;
+      case '\t':
+        result += "\\t";
+        break;
+      default:
+        result += c;
+      }
+    }
+    return result;
+  };
 
   server.Get("/", [&](const httplib::Request&, httplib::Response& res) {
     res.set_content(kIndexHtml, "text/html; charset=utf-8");
@@ -1279,6 +1485,40 @@ int main(int argc, char** argv) {
     res.set_content(json.str(), "application/json");
   });
 
+  // Vector LIST endpoint (used by Browse tab)
+  server.Get("/api/vector/list", [&](const httplib::Request&, httplib::Response& res) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto vectors = engine.GetAllVectors();
+
+    auto vector_to_string = [](const core_engine::vector::Vector& vec) -> std::string {
+      std::ostringstream oss;
+      for (std::size_t i = 0; i < vec.dimension(); ++i) {
+        if (i > 0) {
+          oss << ",";
+        }
+        oss << vec[i];
+      }
+      return oss.str();
+    };
+
+    std::ostringstream json;
+    json << "{\"vectors\":[";
+
+    bool first = true;
+    for (const auto& [key, vec] : vectors) {
+      if (!first)
+        json << ",";
+      first = false;
+      const auto serialized = vector_to_string(vec);
+      json << "{\"key\":\"" << escape_json(key) << "\",";
+      json << "\"dimension\":" << vec.dimension() << ",";
+      json << "\"vector\":\"" << escape_json(serialized) << "\"}";
+    }
+
+    json << "]}";
+    res.set_content(json.str(), "application/json");
+  });
+
   Log(LogLevel::kInfo, "Vector API endpoints registered");
 
   server.Get("/api/stats", [&](const httplib::Request&, httplib::Response& res) {
@@ -1330,32 +1570,6 @@ int main(int argc, char** argv) {
   server.Get("/api/entries", [&](const httplib::Request&, httplib::Response& res) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     const auto entries = engine.GetAllEntries();
-
-    auto escape_json = [](const std::string& s) -> std::string {
-      std::string result;
-      for (char c : s) {
-        switch (c) {
-        case '"':
-          result += "\\\"";
-          break;
-        case '\\':
-          result += "\\\\";
-          break;
-        case '\n':
-          result += "\\n";
-          break;
-        case '\r':
-          result += "\\r";
-          break;
-        case '\t':
-          result += "\\t";
-          break;
-        default:
-          result += c;
-        }
-      }
-      return result;
-    };
 
     std::ostringstream json;
     json << "{\"entries\":[";

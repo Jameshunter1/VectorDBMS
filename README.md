@@ -28,6 +28,18 @@ cmake --build build -j
 
 > **Note (Linux)**: Install `liburing-dev` to enable the asynchronous disk pipeline. Disable it via `-DCORE_ENGINE_ENABLE_IO_URING=OFF` if building on distributions without liburing.
 
+### Developer Utilities
+
+- **dbcli** – interactive CLI for day-to-day key/value + vector ops.
+- **dbweb** – modern dashboard with persistent Browse Data, bulk vector loader, and live stats.
+- **disk_demo** – DiskManager milestone sample that performs single-page and contiguous I/O round-trips.
+
+```bash
+# Build and run the disk demo (creates ./_disk_demo/disk_demo.db by default)
+cmake --build build --target disk_demo
+./build/apps/examples/disk_demo ./_disk_demo 8 32
+```
+
 ### Container Targets
 
 - **Dockerfile (Linux)**: Multi-stage build that produces a minimal Ubuntu 22.04 image with `dbweb` and `dbcli`. Use this when you need to bake application changes, ship to registries, or run a single container without Prometheus/Grafana.
@@ -44,6 +56,7 @@ Each artifact shares the same defaults (`/vectis/data` volume, port `8080`, heal
  **HNSW vector index** for similarity search  
  **Batch operations** and range scans  
  **Prometheus metrics** + Grafana dashboards  
+ **Vector-aware web console** with server-backed Browse Data + bulk loader  
  **Docker deployment** with monitoring stack  
 
 ## Performance

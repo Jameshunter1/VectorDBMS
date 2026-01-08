@@ -115,6 +115,9 @@ public:
   Status BatchPutVectors(const std::vector<std::pair<std::string, vector::Vector>>& vectors);
   std::vector<std::optional<vector::Vector>> BatchGetVectors(const std::vector<std::string>& keys);
 
+  // Enumerate all vectors stored in the engine
+  std::vector<std::pair<std::string, vector::Vector>> GetAllVectors() const;
+
   // Get vector index statistics
   struct VectorStats {
     bool index_enabled = false;            // Whether vector indexing is active

@@ -79,6 +79,9 @@ public:
   };
   Stats GetStats() const;
 
+  // Enumerate all stored vectors (used for admin tooling)
+  std::vector<std::pair<std::string, Vector>> GetAllVectors() const;
+
   // Serialization (for persisting via BufferPoolManager)
   std::string Serialize() const;
   static HNSWIndex Deserialize(const std::string& data);

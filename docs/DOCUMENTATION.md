@@ -71,6 +71,31 @@ curl "http://localhost:8080/api/get?key=test"
 curl "http://localhost:8080/api/stats"
 ```
 
+### DiskManager Demo Utility
+
+`disk_demo` is the storage milestone sample that exercises page-level I/O with and without contiguous buffers. It creates a scratch database, writes deterministic payloads, reads them back, and prints DiskManager statistics.
+
+```bash
+# Build + run (Linux/macOS single-config example)
+cmake --build build --target disk_demo
+./build/apps/examples/disk_demo ./_disk_demo 8 32
+
+# Windows (preset build)
+cmake --build build/windows-vs2022-x64-debug --target disk_demo --config Debug
+.\build\windows-vs2022-x64-debug\Debug\disk_demo.exe C:\temp\vectis_demo 8 32
+```
+
+Arguments: `<data_dir> [single_page_count] [contiguous_page_count]`. Remove the generated directory to rerun from a clean slate.
+
+### Web Dashboard Highlights
+
+The refreshed `dbweb` frontend now:
+
+- Browse Data now streams both key/value rows and stored vectors directly from the engine (no more session-only cache).
+- Adds a bulk vector loader that generates random vectors matching the configured dimension.
+- Removes legacy SSTable widgets and replaces them with live disk + latency metrics.
+- Fixes tab switching so programmatic navigation (e.g., from "View" buttons) no longer throws console errors.
+
 ---
 
 ## Building from Source
@@ -291,6 +316,20 @@ core_engine_total_pages 1024
 core_engine_total_reads 125000
 core_engine_avg_get_latency_microseconds 15.3
 ```
+
+#### VECTOR LIST - Enumerate Stored Vectors
+```http
+GET /api/vector/list
+```
+Response:
+```json
+{
+  "vectors": [
+    {"key": "doc:42", "dimension": 384, "vector": "0.10,0.20,..."}
+  ]
+}
+```
+Use this endpoint to populate admin tooling (such as the Browse Data tab) with server-sourced vectors instead of relying on local caches.
 
 ### C++ API
 
