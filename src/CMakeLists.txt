@@ -32,7 +32,7 @@ option(CORE_ENGINE_BUILD_WEB "Build minimal web frontend (dbweb)" ON)
 option(CORE_ENGINE_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 option(CORE_ENGINE_ENABLE_SANITIZERS "Enable sanitizer flags (best on Clang/GCC)" OFF)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake")
 include(ProjectOptions)
 
 # ---- Core library ------------------------------------------------------------
@@ -94,7 +94,7 @@ if(CORE_ENGINE_BUILD_WEB)
   FetchContent_Declare(
     httplib
     GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.15.3  # Use the latest stable version
+    GIT_TAG v0.18.3  # Use the latest stable version
   )
   FetchContent_MakeAvailable(httplib)
 

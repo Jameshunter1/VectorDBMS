@@ -136,6 +136,7 @@ public:
     std::size_t total_reads;       // Total page reads from disk.
     std::size_t total_writes;      // Total page writes to disk.
     std::size_t checksum_failures; // Corrupted pages detected.
+    std::size_t total_entries = 0; // Total key-value entries in database.
 
     // Performance metrics (microseconds)
     double avg_get_time_us = 0.0; // Average Get operation time.

@@ -284,12 +284,16 @@ static const char* kIndexHtml_Part1 = R"HTML(
     
     <div class="tabs">
       <button class="tab active" onclick="switchTab('operations')">⚡ Operations</button>
+      <button class="tab" onclick="switchTab('vector')">🔍 Vector Search</button>
       <button class="tab" onclick="switchTab('browse')">📋 Browse Data</button>
       <button class="tab" onclick="switchTab('stats')">📊 Statistics</button>
       <button class="tab" onclick="switchTab('files')">📁 Files</button>
       <button class="tab" onclick="switchTab('console')">💻 Console</button>
     </div>
-    
+)HTML";
+
+// Part 1b: Tab contents start
+static const char* kIndexHtml_Part1b = R"HTML(    
     <div id="tab-operations" class="tab-content active">
       <div class="grid-2">
         <div class="card">
@@ -324,6 +328,75 @@ static const char* kIndexHtml_Part1 = R"HTML(
             </div>
           </div>
         </div>
+      </div>
+    </div>
+    
+    <div id="tab-vector" class="tab-content">
+      <div class="grid-2">
+        <div class="card">
+          <h3>Insert Vector</h3>
+          <div class="form-group">
+            <label>Key</label>
+            <input type="text" id="vector-key" placeholder="doc:example_001" autocomplete="off"/>
+          </div>
+          <div class="form-group">
+            <label>Vector (comma-separated floats)</label>
+            <textarea id="vector-data" placeholder="0.1,0.2,0.3,0.4,0.5,..." rows="4"></textarea>
+          </div>
+          <button class="btn-primary" onclick="doPutVector()">Insert Vector</button>
+          <button class="btn-success" onclick="doGetVector()">Get Vector</button>
+          <div style="margin-top: 15px;">
+            <button class="btn-secondary btn-small" onclick="generateRandomVector(128)">Generate Random (128-dim)</button>
+            <button class="btn-secondary btn-small" onclick="generateRandomVector(256)">Generate Random (256-dim)</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Similarity Search</h3>
+          <div class="form-group">
+            <label>Query Vector (comma-separated floats)</label>
+            <textarea id="query-vector" placeholder="0.1,0.2,0.3,0.4,0.5,..." rows="4"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Number of Results (k)</label>
+            <input type="number" id="search-k" value="5" min="1" max="100"/>
+          </div>
+          <button class="btn-primary" onclick="doVectorSearch()">Search Similar</button>
+          <button class="btn-secondary" onclick="copyVectorToQuery()">Copy Insert Vector to Query</button>
+          
+          <div id="search-results" style="margin-top: 20px;"></div>
+        </div>
+      </div>
+      
+      <div class="card" style="margin-top: 20px;">
+        <h3>Vector Index Statistics</h3>
+        <div class="grid-3">
+          <div class="stat-card">
+            <div class="stat-label">Index Enabled</div>
+            <div class="stat-value" id="vector-enabled">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Vectors</div>
+            <div class="stat-value" id="vector-count">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Dimension</div>
+            <div class="stat-value" id="vector-dimension">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Distance Metric</div>
+            <div class="stat-value" id="vector-metric">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">HNSW Layers</div>
+            <div class="stat-value" id="vector-layers">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Connections</div>
+            <div class="stat-value" id="vector-connections">0</div>
+          </div>
+        </div>
+        <button class="btn-secondary btn-small" onclick="refreshVectorStats()" style="margin-top: 15px;">🔄 Refresh Stats</button>
       </div>
     </div>
     
@@ -427,6 +500,7 @@ static const char* kIndexHtml_Part1 = R"HTML(
     </div>
 )HTML";
 
+// Part 2: Tabs and JavaScript start
 static const char* kIndexHtml_Part2 = R"HTML(    
     <div id="tab-files" class="tab-content">
       <div class="card">
@@ -468,6 +542,7 @@ static const char* kIndexHtml_Part2 = R"HTML(
       if (tabName === 'browse') refreshBrowse();
       if (tabName === 'stats') refreshStats();
       if (tabName === 'files') refreshFiles();
+      if (tabName === 'vector') refreshVectorStats();
     }
 
     function log(msg, type = 'info') {
@@ -844,6 +919,151 @@ static const char* kIndexHtml_Part2 = R"HTML(
     function clearConsole() {
       consoleEl.innerHTML = 'Console cleared.\n';
     }
+)HTML";
+
+// Part 3: Vector operations JavaScript
+static const char* kIndexHtml_Part3 = R"HTML(
+    // ====== Vector Operations ======
+
+    async function doPutVector() {
+      const key = document.getElementById('vector-key').value.trim();
+      const vectorData = document.getElementById('vector-data').value.trim();
+      
+      if (!key || !vectorData) {
+        log('Key and vector data required', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/vector/put', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ key, vector: vectorData })
+        });
+        
+        if (res.ok) {
+          const dimension = vectorData.split(',').length;
+          log(`✓ Inserted vector "${key}" (${dimension}-dim)`, 'success');
+          await refreshVectorStats();
+        } else {
+          log(`✗ Vector PUT failed: ${await res.text()}`, 'error');
+        }
+      } catch (err) {
+        log('Error: ' + err.message, 'error');
+      }
+    }
+
+    async function doGetVector() {
+      const key = document.getElementById('vector-key').value.trim();
+      if (!key) {
+        log('Key required', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/vector/get?key=' + encodeURIComponent(key));
+        
+        if (res.ok) {
+          const vectorData = await res.text();
+          document.getElementById('vector-data').value = vectorData;
+          const dimension = vectorData.split(',').length;
+          log(`✓ Retrieved vector "${key}" (${dimension}-dim)`, 'success');
+        } else if (res.status === 404) {
+          log(`✗ Vector "${key}" not found`, 'error');
+        } else {
+          log(`✗ Vector GET failed: ${await res.text()}`, 'error');
+        }
+      } catch (err) {
+        log('Error: ' + err.message, 'error');
+      }
+    }
+
+    async function doVectorSearch() {
+      const queryVector = document.getElementById('query-vector').value.trim();
+      const k = parseInt(document.getElementById('search-k').value);
+      
+      if (!queryVector) {
+        log('Query vector required', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/vector/search?vector=' + encodeURIComponent(queryVector) + '&k=' + k);
+        
+        if (res.ok) {
+          const data = await res.json();
+          displaySearchResults(data.results);
+          log(`✓ Found ${data.results.length} similar vectors`, 'success');
+        } else {
+          log(`✗ Vector search failed: ${await res.text()}`, 'error');
+        }
+      } catch (err) {
+        log('Error: ' + err.message, 'error');
+      }
+    }
+
+    function displaySearchResults(results) {
+      const container = document.getElementById('search-results');
+      
+      if (results.length === 0) {
+        container.innerHTML = '<div class="empty-state">No results found</div>';
+        return;
+      }
+
+      let html = '<div style="background: #f8f9fa; border-radius: 6px; padding: 15px; margin-top: 10px;">';
+      html += '<h4 style="margin: 0 0 10px 0; color: #667eea;">Search Results:</h4>';
+      
+      results.forEach((result, idx) => {
+        const barWidth = Math.max(5, 100 - (result.distance * 10));
+        html += `
+          <div style="margin-bottom: 8px; padding: 10px; background: white; border-radius: 4px; border-left: 3px solid #667eea;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 600; font-family: monospace; color: #333;">${escapeHtml(result.key)}</span>
+              <span style="font-size: 12px; color: #666;">distance: ${result.distance.toFixed(4)}</span>
+            </div>
+            <div style="margin-top: 5px; background: #e0e0e0; height: 4px; border-radius: 2px; overflow: hidden;">
+              <div style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: ${barWidth}%;"></div>
+            </div>
+          </div>
+        `;
+      });
+      
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    async function refreshVectorStats() {
+      try {
+        const res = await fetch('/api/vector/stats');
+        const stats = await res.json();
+        
+        document.getElementById('vector-enabled').textContent = stats.index_enabled ? 'Yes' : 'No';
+        document.getElementById('vector-count').textContent = stats.num_vectors;
+        document.getElementById('vector-dimension').textContent = stats.dimension;
+        document.getElementById('vector-metric').textContent = stats.metric || 'N/A';
+        document.getElementById('vector-layers').textContent = stats.num_layers;
+        document.getElementById('vector-connections').textContent = stats.avg_connections.toFixed(2);
+        
+        log('✓ Vector stats refreshed', 'info');
+      } catch (err) {
+        log('Failed to refresh vector stats: ' + err.message, 'error');
+      }
+    }
+
+    function generateRandomVector(dimension) {
+      const values = [];
+      for (let i = 0; i < dimension; i++) {
+        values.push((Math.random() * 2 - 1).toFixed(4));
+      }
+      document.getElementById('vector-data').value = values.join(',');
+      log(`Generated random ${dimension}-dimensional vector`, 'info');
+    }
+
+    function copyVectorToQuery() {
+      const vectorData = document.getElementById('vector-data').value;
+      document.getElementById('query-vector').value = vectorData;
+      log('Copied vector to query field', 'info');
+    }
 
     // Auto-refresh
     refreshStats();
@@ -853,8 +1073,8 @@ static const char* kIndexHtml_Part2 = R"HTML(
 </html>
 )HTML";
 
-// Combine the two parts
-static const std::string kIndexHtml = std::string(kIndexHtml_Part1) + std::string(kIndexHtml_Part2);
+// Combine the four parts
+static const std::string kIndexHtml = std::string(kIndexHtml_Part1) + std::string(kIndexHtml_Part1b) + std::string(kIndexHtml_Part2) + std::string(kIndexHtml_Part3);
 
 int main(int argc, char** argv) {
   using core_engine::Engine;
@@ -876,8 +1096,141 @@ int main(int argc, char** argv) {
   httplib::Server server;
 
   server.Get("/", [&](const httplib::Request&, httplib::Response& res) {
-    res.set_content(kIndexHtml, "text/html; charset=utf-8");
+    res.set_content("<!DOCTYPE html><html><body><h1>VectorDBMS Web UI</h1></body></html>", "text/html; charset=utf-8");
   });
+  
+  Log(LogLevel::kInfo, "Registering vector API endpoints...");
+  
+  // Vector PUT endpoint
+  server.Post("/api/vector/put", [&](const httplib::Request& req, httplib::Response& res) {
+    if (!req.has_param("key") || !req.has_param("vector")) {
+      res.status = 400;
+      res.set_content("Missing key or vector", "text/plain");
+      return;
+    }
+
+    const auto key = req.get_param_value("key");
+    const auto vector_str = req.get_param_value("vector");
+
+    std::vector<float> values;
+    std::istringstream iss(vector_str);
+    std::string token;
+    while (std::getline(iss, token, ',')) {
+      try {
+        values.push_back(std::stof(token));
+      } catch (...) {
+        res.status = 400;
+        res.set_content("Invalid vector format", "text/plain");
+        return;
+      }
+    }
+
+    core_engine::vector::Vector vec(values);
+
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto status = engine.PutVector(key, vec);
+
+    if (!status.ok()) {
+      res.status = 500;
+      res.set_content(status.ToString(), "text/plain");
+      return;
+    }
+
+    res.set_content("OK", "text/plain");
+  });
+  
+  // Vector GET endpoint  
+  server.Get("/api/vector/get", [&](const httplib::Request& req, httplib::Response& res) {
+    if (!req.has_param("key")) {
+      res.status = 400;
+      res.set_content("Missing key", "text/plain");
+      return;
+    }
+
+    const auto key = req.get_param_value("key");
+
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto vec_opt = engine.GetVector(key);
+
+    if (!vec_opt.has_value()) {
+      res.status = 404;
+      res.set_content("NOT_FOUND", "text/plain");
+      return;
+    }
+
+    std::ostringstream oss;
+    const auto& vec = *vec_opt;
+    for (std::size_t i = 0; i < vec.dimension(); ++i) {
+      if (i > 0)
+        oss << ",";
+      oss << vec[i];
+    }
+
+    res.set_content(oss.str(), "text/plain");
+  });
+  
+  // Vector SEARCH endpoint
+  server.Get("/api/vector/search", [&](const httplib::Request& req, httplib::Response& res) {
+    if (!req.has_param("vector")) {
+      res.status = 400;
+      res.set_content("Missing vector query", "text/plain");
+      return;
+    }
+
+    const auto vector_str = req.get_param_value("vector");
+    const auto k = req.has_param("k") ? std::stoi(req.get_param_value("k")) : 5;
+
+    std::vector<float> values;
+    std::istringstream iss(vector_str);
+    std::string token;
+    while (std::getline(iss, token, ',')) {
+      try {
+        values.push_back(std::stof(token));
+      } catch (...) {
+        res.status = 400;
+        res.set_content("Invalid vector format", "text/plain");
+        return;
+      }
+    }
+
+    core_engine::vector::Vector query_vec(values);
+
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto results = engine.SearchSimilar(query_vec, k, false);
+
+    std::ostringstream json;
+    json << "{\"results\":[";
+
+    bool first = true;
+    for (const auto& result : results) {
+      if (!first)
+        json << ",";
+      first = false;
+      json << "{\"key\":\"" << result.key << "\",\"distance\":" << result.distance << "}";
+    }
+
+    json << "]}";
+    res.set_content(json.str(), "application/json");
+  });
+  
+  // Vector STATS endpoint
+  server.Get("/api/vector/stats", [&](const httplib::Request&, httplib::Response& res) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto vstats = engine.GetVectorStats();
+
+    std::ostringstream json;
+    json << "{"
+         << "\"index_enabled\":" << (vstats.index_enabled ? "true" : "false") << ","
+         << "\"num_vectors\":" << vstats.num_vectors << ","
+         << "\"dimension\":" << vstats.dimension << ","
+         << "\"metric\":\"" << vstats.metric << "\","
+         << "\"num_layers\":" << vstats.num_layers << ","
+         << "\"avg_connections\":" << vstats.avg_connections_per_node << "}";
+
+    res.set_content(json.str(), "application/json");
+  });
+  
+  Log(LogLevel::kInfo, "Vector API endpoints registered");
 
   server.Get("/api/stats", [&](const httplib::Request&, httplib::Response& res) {
     std::lock_guard<std::mutex> lock(engine_mutex);
@@ -889,6 +1242,7 @@ int main(int argc, char** argv) {
          << "\"total_reads\":" << stats.total_reads << ","
          << "\"total_writes\":" << stats.total_writes << ","
          << "\"checksum_failures\":" << stats.checksum_failures << ","
+         << "\"total_entries\":" << stats.total_entries << ","
          << "\"avg_get_time_us\":" << stats.avg_get_time_us << ","
          << "\"avg_put_time_us\":" << stats.avg_put_time_us << ","
          << "\"total_gets\":" << stats.total_gets << ","
@@ -1063,8 +1417,23 @@ int main(int argc, char** argv) {
     res.set_content("OK", "text/plain");
   });
 
+  // DEBUG endpoint to check internal state
+  server.Get("/api/debug/keys", [&](const httplib::Request&, httplib::Response& res) {
+    std::lock_guard<std::mutex> lock(engine_mutex);
+    const auto entries = engine.GetAllEntries();
+    std::ostringstream json;
+    json << "{\"count\":" << entries.size() << "}";
+    res.set_content(json.str(), "application/json");
+  });
+
+  // TEST endpoint
+  server.Get("/api/test", [&](const httplib::Request&, httplib::Response& res) {
+    res.set_content("TEST_OK", "text/plain");
+  });
+
   Log(LogLevel::kInfo, "Enhanced web interface running");
-  Log(LogLevel::kInfo, "Open http://0.0.0.0:" + std::to_string(port) + "/");
+  Log(LogLevel::kInfo, "Open http://localhost:" + std::to_string(port) + "/");
+  Log(LogLevel::kInfo, "Access from network: http://<your-ip>:" + std::to_string(port) + "/");
   Log(LogLevel::kInfo, "Database: " + db_dir);
 
   server.listen("0.0.0.0", port);

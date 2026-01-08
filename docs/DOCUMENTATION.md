@@ -326,7 +326,6 @@ config.buffer_pool_size = (RAM_GB * 0.25) * 256;  // 25% of RAM
 
 **Compaction Tuning**:
 ```cpp
-config.l0_compaction_trigger = 4;     // Trigger at 4 L0 SSTables
 config.wal_sync_mode = WalSyncMode::kPeriodic;  // Balance durability vs speed
 ```
 

@@ -561,13 +561,31 @@ Engine::Stats Engine::GetStats() const {
   stats.total_puts = total_puts_;
   stats.avg_get_time_us = (total_gets_ > 0) ? (total_get_time_us_ / total_gets_) : 0.0;
   stats.avg_put_time_us = (total_puts_ > 0) ? (total_put_time_us_ / total_puts_) : 0.0;
+  stats.total_entries = key_to_page_.size();
 
   return stats;
 }
 
 std::vector<std::pair<std::string, std::string>> Engine::GetAllEntries() const {
-  // Year 1 Q1: Placeholder
-  return {};
+  std::vector<std::pair<std::string, std::string>> entries;
+  
+  if (!is_open_ || !buffer_pool_manager_) {
+    return entries;
+  }
+
+  // Iterate through all pages in the index
+  // Note: We need to use const_cast here since Get() is non-const
+  // This is safe because Get() only modifies cache state, not logical database state
+  Engine* mutable_this = const_cast<Engine*>(this);
+  
+  for (const auto& [key, page_id] : key_to_page_) {
+    auto value_opt = mutable_this->Get(key);
+    if (value_opt.has_value()) {
+      entries.emplace_back(key, value_opt.value());
+    }
+  }
+
+  return entries;
 }
 
 // ====== Vector Database Operations ======
@@ -720,3 +738,4 @@ Status Engine::Flush() {
 }
 
 } // namespace core_engine
+

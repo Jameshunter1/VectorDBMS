@@ -325,7 +325,7 @@ HNSWIndex::Stats HNSWIndex::GetStats() const {
 
 std::string HNSWIndex::Serialize() const {
   // TODO: Implement full serialization for persistence
-  // For now, return empty string (will be implemented when integrating with SSTables)
+  // For now, return empty string
   return "";
 }
 
