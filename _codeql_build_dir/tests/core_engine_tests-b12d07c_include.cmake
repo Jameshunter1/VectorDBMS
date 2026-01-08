@@ -1,0 +1,5 @@
+if(EXISTS "/home/runner/work/VectorDBMS/VectorDBMS/_codeql_build_dir/tests/core_engine_tests-b12d07c_tests.cmake")
+  include("/home/runner/work/VectorDBMS/VectorDBMS/_codeql_build_dir/tests/core_engine_tests-b12d07c_tests.cmake")
+else()
+  add_test(core_engine_tests_NOT_BUILT-b12d07c core_engine_tests_NOT_BUILT-b12d07c)
+endif()

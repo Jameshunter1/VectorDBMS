@@ -639,7 +639,7 @@ Status DiskManager::RegisterFixedBuffersLocked(std::span<Page> buffers) {
 
   // Store registration metadata
   fixed_buffers_registered_ = true;
-  fixed_buffer_base_ = &buffers[0];
+  fixed_buffer_base_ = buffers.data();
   fixed_buffer_count_ = buffers.size();
 
   Log(LogLevel::kInfo, "Registered " + std::to_string(buffers.size()) +
