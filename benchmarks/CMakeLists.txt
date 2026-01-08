@@ -31,7 +31,8 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(benchmark)
 
-# Patch Google Benchmark's sysinfo.cc on Windows
+# Comprehensive patch for Google Benchmark's sysinfo.cc on Windows
+# This patches the ThreadAffinityGuard class to guard all POSIX pthread code
 if(WIN32)
   FetchContent_GetProperties(benchmark)
   set(SYSINFO_FILE "${benchmark_SOURCE_DIR}/src/sysinfo.cc")
@@ -43,17 +44,46 @@ if(WIN32)
     string(FIND "${SYSINFO_CONTENT}" "// PATCHED FOR WINDOWS" PATCH_POS)
     
     if(PATCH_POS EQUAL -1)
-      # Add guards around pthread.h include
+      # Patch 1: Guard pthread.h include (under BENCHMARK_HAS_PTHREAD_AFFINITY)
       string(REPLACE 
-        "#include <pthread.h>"
-        "// PATCHED FOR WINDOWS: Guard pthread.h include\n#if defined(__unix__) || defined(__APPLE__)\n#include <pthread.h>\n#endif"
+        "#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY)\n#include <pthread.h>"
+        "// PATCHED FOR WINDOWS: Guard POSIX-specific pthread APIs\n#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY) && (defined(__unix__) || defined(__APPLE__))\n#include <pthread.h>"
         SYSINFO_CONTENT 
         "${SYSINFO_CONTENT}"
       )
       
+      # Patch 2: Guard the SetAffinity() pthread implementation
+      # Find the pthread_getaffinity_np section and wrap it
+      string(REPLACE
+        "  bool SetAffinity() {\n#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY)\n    int ret;\n    self = pthread_self();"
+        "  bool SetAffinity() {\n#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY) && (defined(__unix__) || defined(__APPLE__))\n    int ret;\n    self = pthread_self();"
+        SYSINFO_CONTENT
+        "${SYSINFO_CONTENT}"
+      )
+      
+      # Patch 3: Guard pthread member variables in ThreadAffinityGuard
+      string(REPLACE
+        "#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY)\n  pthread_t self;\n  cpu_set_t previous_affinity;"
+        "#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY) && (defined(__unix__) || defined(__APPLE__))\n  pthread_t self;\n  cpu_set_t previous_affinity;"
+        SYSINFO_CONTENT
+        "${SYSINFO_CONTENT}"
+      )
+      
+      # Patch 4: Guard the destructor's pthread_setaffinity_np call
+      string(REPLACE
+        "#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY)\n    int ret = pthread_setaffinity_np(self, sizeof(previous_affinity),\n                                     &previous_affinity);"
+        "#if defined(BENCHMARK_HAS_PTHREAD_AFFINITY) && (defined(__unix__) || defined(__APPLE__))\n    int ret = pthread_setaffinity_np(self, sizeof(previous_affinity),\n                                     &previous_affinity);"
+        SYSINFO_CONTENT
+        "${SYSINFO_CONTENT}"
+      )
+      
       file(WRITE "${SYSINFO_FILE}" "${SYSINFO_CONTENT}")
-      message(STATUS "Patched ${SYSINFO_FILE} to guard pthread.h include on Windows")
+      message(STATUS "Patched ${SYSINFO_FILE} to guard all POSIX pthread APIs with platform checks")
+    else()
+      message(STATUS "Skipping patch: ${SYSINFO_FILE} already patched")
     endif()
+  else()
+    message(WARNING "Could not find ${SYSINFO_FILE} to patch")
   endif()
 endif()
 
