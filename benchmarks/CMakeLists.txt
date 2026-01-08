@@ -17,6 +17,15 @@ FetchContent_Declare(
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 
+# On Windows, Google Benchmark will detect missing POSIX features (pthreads, shm_open, etc.)
+# This is expected behavior and should not cause build failures.
+if(WIN32)
+  # Disable POSIX-specific features that are not available on Windows
+  set(HAVE_POSIX_REGEX 0 CACHE BOOL "" FORCE)
+  set(HAVE_PTHREAD_AFFINITY 0 CACHE BOOL "" FORCE)
+  set(BENCHMARK_ENABLE_LIBPFM OFF CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_MakeAvailable(benchmark)
 
 add_executable(core_engine_benchmarks
