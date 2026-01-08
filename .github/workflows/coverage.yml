@@ -47,17 +47,15 @@ jobs:
     - name: Generate coverage report
       working-directory: build
       run: |
-        gcovr -r .. \
-          --exclude '../tests/*' \
-          --exclude '../build/_deps/.*' \
-          --exclude '.*/build/_deps/.*' \
-          --exclude '.*benchmark.*' \
-          --exclude '.*catch2.*' \
-          --exclude '.*httplib.*' \
-          --xml-pretty \
-          --xml coverage.xml \
-          --html-details coverage.html
-    
+       gcovr -r .. \
+       --exclude '../tests/*' \
+       --exclude '../build/*' \
+       --exclude '../_deps/*' \
+       --exclude '.*_deps/.*' \
+       --xml-pretty \
+       --xml coverage.xml \
+       --html-details coverage.html
+       
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
