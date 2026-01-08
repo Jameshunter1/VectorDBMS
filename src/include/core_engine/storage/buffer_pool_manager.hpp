@@ -156,6 +156,17 @@ public:
     return pool_size_;
   }
 
+  // ========== Fixed-Buffer Support ==========
+
+  // Get a span covering all pages in the buffer pool (for fixed-buffer registration)
+  // Returns: Span of all pages (contiguous in memory)
+  //
+  // Use case: Register buffer pool with DiskManager for zero-copy I/O
+  // Example: disk_manager->RegisterFixedBuffers(buffer_pool->GetPageSpan())
+  std::span<Page> GetPageSpan() {
+    return std::span<Page>(pages_, pool_size_);
+  }
+
 private:
   // ========== Internal Helpers ==========
 

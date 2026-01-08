@@ -21,10 +21,14 @@ Engine::Engine() = default;
 
 Engine::~Engine() {
   // Explicit destruction order to prevent use-after-free:
-  // 1. Destroy buffer pool first (flushes pages while disk manager is still valid)
-  // 2. Then log manager
-  // 3. Finally disk manager
+  // 1. Unregister fixed buffers before destroying buffer pool (avoids dangling pointer)
+  // 2. Destroy buffer pool (flushes pages while disk manager is still valid)
+  // 3. Then log manager
+  // 4. Finally disk manager
   Log(LogLevel::kDebug, "Engine::~Engine() starting");
+  if (disk_manager_) {
+    disk_manager_->UnregisterFixedBuffers();
+  }
   buffer_pool_manager_.reset();
   Log(LogLevel::kDebug, "BufferPoolManager reset complete");
   log_manager_.reset();
@@ -57,7 +61,11 @@ Status Engine::Open(const DatabaseConfig& config) {
 
   // Create DiskManager for page I/O
   auto db_file = config_.data_dir / "pages.db";
-  disk_manager_ = std::make_unique<DiskManager>(db_file);
+  DiskManager::Options disk_options;
+  disk_options.register_fixed_buffers = config_.enable_fixed_buffers;
+  // Fixed buffers require io_uring; make this dependency explicit
+  disk_options.enable_io_uring = config_.enable_fixed_buffers;
+  disk_manager_ = std::make_unique<DiskManager>(db_file, disk_options);
 
   auto status = disk_manager_->Open();
   if (!status.ok()) {
@@ -70,6 +78,18 @@ Status Engine::Open(const DatabaseConfig& config) {
       std::make_unique<BufferPoolManager>(config_.buffer_pool_size, disk_manager_.get());
   Log(LogLevel::kDebug, "BufferPoolManager created (pool_size=" +
                             std::to_string(config_.buffer_pool_size) + " pages, LRU-K eviction)");
+
+  // Register fixed buffers for zero-copy I/O if enabled (Year 2 Q2)
+  if (config_.enable_fixed_buffers) {
+    auto reg_status = disk_manager_->RegisterFixedBuffers(buffer_pool_manager_->GetPageSpan());
+    if (reg_status.ok()) {
+      Log(LogLevel::kInfo, "Fixed-buffer registration enabled for zero-copy I/O");
+    } else if (reg_status.code() == StatusCode::kUnimplemented) {
+      Log(LogLevel::kInfo, "io_uring not available; using standard I/O");
+    } else {
+      Log(LogLevel::kWarn, "Fixed-buffer registration failed: " + reg_status.ToString());
+    }
+  }
 
   // Create LogManager for write-ahead logging (Year 1 Q4 - WAL)
   auto log_file = config_.data_dir / "wal.log";
