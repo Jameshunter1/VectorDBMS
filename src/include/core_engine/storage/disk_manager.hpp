@@ -166,6 +166,14 @@ public:
   // - io_uring must be enabled and initialized
   // - Buffers must be page-aligned (4 KB alignment)
   // - Only one registration active at a time (call Unregister first)
+  // - The pages referenced by `buffers` must remain valid and at the same
+  //   memory addresses for the entire lifetime of the registration, i.e.,
+  //   from a successful call to RegisterFixedBuffers until UnregisterFixedBuffers
+  //   has completed.
+  // - The owner of the buffers (e.g., BufferPoolManager or any container
+  //   holding the Page array) must not be moved, resized, or destroyed while
+  //   fixed buffers are registered. Call UnregisterFixedBuffers before
+  //   destroying or relocating the underlying buffer storage.
   Status RegisterFixedBuffers(std::span<Page> buffers);
 
   // Unregister previously registered fixed buffers
