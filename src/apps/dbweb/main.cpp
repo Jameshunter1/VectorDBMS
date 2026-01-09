@@ -39,51 +39,65 @@ static const char* kIndexHtml_Part1 = R"HTML(
       overflow: hidden;
     }
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
       color: white;
-      padding: 30px 40px;
+      padding: 25px 40px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      border-bottom: 4px solid #fdd835;
     }
-    .header h1 { font-size: 32px; }
-    .header-stats { display: flex; gap: 30px; font-size: 14px; }
-    .header-stat { text-align: center; }
-    .header-stat-value { font-size: 24px; font-weight: 700; }
-    .header-stat-label { opacity: 0.9; font-size: 11px; text-transform: uppercase; }
+    .header h1 { font-size: 28px; letter-spacing: -0.5px; }
+    .header-info { display: flex; gap: 20px; align-items: center; }
+    .status-pill {
+      background: #4caf50;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
     
     .tabs {
       display: flex;
       background: #f8f9fa;
       border-bottom: 2px solid #e0e0e0;
+      padding-left: 20px;
     }
     .tab {
-      padding: 15px 30px;
+      padding: 18px 25px;
       cursor: pointer;
       border: none;
       background: none;
-      font-size: 14px;
-      font-weight: 600;
-      color: #666;
+      font-size: 13px;
+      font-weight: 700;
+      color: #757575;
       transition: all 0.2s;
       border-bottom: 3px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
-    .tab:hover { color: #667eea; background: rgba(102, 126, 234, 0.05); }
-    .tab.active { color: #667eea; border-bottom-color: #667eea; background: white; }
+    .tab:hover { color: #1a237e; background: rgba(26, 35, 126, 0.05); }
+    .tab.active { color: #1a237e; border-bottom-color: #1a237e; background: white; }
     
-    .tab-content { display: none; padding: 30px; }
+    .tab-content { display: none; padding: 30px; animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .tab-content.active { display: block; }
     
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
     
     .card {
       background: white;
       border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 20px;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      transition: transform 0.2s;
     }
-    .card h3 { color: #667eea; margin-bottom: 15px; font-size: 16px; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    .card h3 { color: #1a237e; margin-bottom: 20px; font-size: 18px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
     
     .form-group { margin-bottom: 15px; }
     label { 
@@ -263,33 +277,18 @@ static const char* kIndexHtml_Part1 = R"HTML(
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <div>
-        <h1>🗄️ Vectis Database Engine</h1>
-        <p style="opacity: 0.9; font-size: 13px; margin-top: 5px;">Enhanced Management Interface</p>
-      </div>
-      <div class="header-stats">
-        <div class="header-stat">
-          <div class="header-stat-value" id="header-entries">0</div>
-          <div class="header-stat-label">Entries</div>
-        </div>
-        <div class="header-stat">
-          <div class="header-stat-value" id="header-pages">0</div>
-          <div class="header-stat-label">Pages</div>
-        </div>
-        <div class="header-stat">
-          <div class="header-stat-value" id="header-ops">0</div>
-          <div class="header-stat-label">Get/Put Ops</div>
-        </div>
+      <div class="header-info">
+        <div id="db-health" class="status-pill">System Healthy</div>
+        <div style="font-size: 12px; font-weight: 600;">v1.5.0-SIFT</div>
       </div>
     </div>
     
     <div class="tabs">
-      <button class="tab active" data-tab="operations" onclick="switchTab('operations', this)">⚡ Operations</button>
-      <button class="tab" data-tab="vector" onclick="switchTab('vector', this)">🔍 Vector Search</button>
-      <button class="tab" data-tab="browse" onclick="switchTab('browse', this)">📋 Browse Data</button>
-      <button class="tab" data-tab="stats" onclick="switchTab('stats', this)">📊 Statistics</button>
-      <button class="tab" data-tab="files" onclick="switchTab('files', this)">📁 Files</button>
+      <button class="tab active" data-tab="vector" onclick="switchTab('vector', this)">🔍 Vector AI</button>
+      <button class="tab" data-tab="browse" onclick="switchTab('browse', this)">📋 Data Browser</button>
+      <button class="tab" data-tab="operations" onclick="switchTab('operations', this)">⚡ Direct Ops</button>
+      <button class="tab" data-tab="system" onclick="switchTab('system', this)">⚙️ System Stats</button>
+      <button class="tab" data-tab="files" onclick="switchTab('files', this)">📁 Storage</button>
       <button class="tab" data-tab="console" onclick="switchTab('console', this)">💻 Console</button>
     </div>
 )HTML";
@@ -333,67 +332,89 @@ static const char* kIndexHtml_Part1b = R"HTML(
       </div>
     </div>
     
-    <div id="tab-vector" class="tab-content">
+    <div id="tab-vector" class="tab-content active">
       <div class="grid-2">
         <div class="card">
-          <h3>Insert Vector</h3>
+          <h3>Vector Dataset Uploader</h3>
+          <div class="form-group">
+            <label>Select SIFT file (.fvecs, .ivecs)</label>
+            <input type="file" id="file-upload-input" accept=".fvecs,.ivecs"/>
+          </div>
+          <div id="upload-progress-container" style="display: none; margin-bottom: 15px;">
+            <div class="stat-label">Upload Progress</div>
+            <div class="progress-bar">
+              <div id="upload-progress-fill" class="progress-fill" style="width: 0%;"></div>
+            </div>
+            <div id="upload-status" style="font-size: 11px; margin-top: 5px; color: #666;">Waiting...</div>
+          </div>
+          <button class="btn-primary" onclick="uploadSiftFile()">Upload to Server</button>
+          
+          <div style="margin-top: 25px; padding-top: 20px; border-top: 1px dashed #ddd;">
+            <h3>Binary SIFT Ingestion</h3>
+            <div class="form-group">
+              <label>Target File Path</label>
+              <input type="text" id="sift-path" placeholder="C:\Users\James\sift\sift_learn.fvecs" autocomplete="off"/>
+            </div>
+            <div class="form-group">
+              <label>Key Prefix</label>
+              <input type="text" id="sift-prefix" value="sift" placeholder="sift"/>
+            </div>
+            <div class="form-group">
+              <label>Limit (0 for all)</label>
+              <input type="number" id="sift-limit" value="10000" min="0"/>
+            </div>
+            <button class="btn-success" onclick="doBulkFileLoad()">Start Bulk Ingestion</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Similarity Search</h3>
+          <div class="form-group">
+            <label>Query Vector (comma-separated floats)</label>
+            <textarea id="query-vector" placeholder="0.1,0.2,0.3,..." rows="3" style="font-size: 12px;"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Results Count (k)</label>
+            <input type="number" id="search-k" value="5" min="1" max="100"/>
+          </div>
+          <button class="btn-primary" onclick="doVectorSearch()">Find Similar Vectors</button>
+          <button class="btn-secondary btn-small" onclick="generateRandomQuery()">Random Query</button>
+          
+          <div id="search-results" style="margin-top: 20px;"></div>
+        </div>
+      </div>
+      
+      <div class="grid-2" style="margin-top: 25px;">
+        <div class="card">
+          <h3>Quick Vector Ingest</h3>
           <div class="form-group">
             <label>Key</label>
             <input type="text" id="vector-key" placeholder="doc:example_001" autocomplete="off"/>
           </div>
           <div class="form-group">
-            <label>Vector (comma-separated floats)</label>
-            <textarea id="vector-data" placeholder="0.1,0.2,0.3,0.4,0.5,..." rows="4"></textarea>
+            <label>Data</label>
+            <textarea id="vector-data" placeholder="0.1,0.2,0.3,..." rows="2" style="font-size: 12px;"></textarea>
           </div>
-          <button class="btn-primary" onclick="doPutVector()">Insert Vector</button>
-          <button class="btn-success" onclick="doGetVector()">Get Vector</button>
-          <p style="margin-top: 10px; font-size: 12px; color: #666;">
-            Vectors must match the configured dimension to pass validation.
-          </p>
-          <div style="margin-top: 15px;">
-            <button class="btn-secondary btn-small" id="vector-random-btn" onclick="generateRandomVector()">
-              Generate Random (<span id="random-dim-label">128</span>-dim)
-            </button>
-            <div style="margin-top: 8px; font-size: 12px; color: #666;">
-              Configured dimension: <span id="configured-dimension">128</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="card">
-          <h3>Similarity Search</h3>
-          <div class="form-group">
-            <label>Query Vector (comma-separated floats)</label>
-            <textarea id="query-vector" placeholder="0.1,0.2,0.3,0.4,0.5,..." rows="4"></textarea>
-          </div>
-          <div class="form-group">
-            <label>Number of Results (k)</label>
-            <input type="number" id="search-k" value="5" min="1" max="100"/>
-          </div>
-          <button class="btn-primary" onclick="doVectorSearch()">Search Similar</button>
-          <button class="btn-secondary" onclick="copyVectorToQuery()">Copy Insert Vector to Query</button>
-          
-          <div id="search-results" style="margin-top: 20px;"></div>
+          <button class="btn-primary" onclick="doPutVector()">Add Single Vector</button>
+          <button class="btn-secondary btn-small" onclick="generateRandomVector()">Random Values</button>
         </div>
 
         <div class="card">
-          <h3>Binary SIFT Loader (.fvecs)</h3>
-          <div class="form-group">
-            <label>Server-side File Path</label>
-            <input type="text" id="sift-path" placeholder="/ext/sift/sift_base.fvecs" autocomplete="off"/>
+          <h3>Vector Health</h3>
+          <div class="grid-2">
+            <div class="stat-card">
+              <div class="stat-label">Indexed Vectors</div>
+              <div class="stat-value" id="vector-count">0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Dimension</div>
+              <div class="stat-value" id="vector-dimension">0</div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Key Prefix</label>
-            <input type="text" id="sift-prefix" value="sift" placeholder="sift"/>
+          <div style="margin-top: 15px; font-size: 12px; color: #666;">
+            <strong>Metric:</strong> <span id="vector-metric">L2 Distance</span><br>
+            <strong>Index Status:</strong> <span id="vector-enabled">Optimized</span>
           </div>
-          <div class="form-group">
-            <label>Limit (0 for all)</label>
-            <input type="number" id="sift-limit" value="10000" min="0"/>
-          </div>
-          <button class="btn-success" onclick="doBulkFileLoad()">Start Bulk Ingestion</button>
-          <p style="margin-top: 10px; font-size: 12px; color: #666;">
-            Streams vectors directly from a binary SIFT file on the server.
-          </p>
         </div>
       </div>
       
@@ -497,52 +518,42 @@ static const char* kIndexHtml_Part1b = R"HTML(
       </div>
     </div>
     
-    <div id="tab-stats" class="tab-content">
-      <div class="grid-3">
-        <div class="stat-card">
-          <div class="stat-label">Total Pages</div>
-          <div class="stat-value" id="stat-total-pages">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Disk Reads</div>
-          <div class="stat-value" id="stat-disk-reads">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Disk Writes</div>
-          <div class="stat-value" id="stat-disk-writes">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Checksum Failures</div>
-          <div class="stat-value" id="stat-checksum-failures">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Total Entries</div>
-          <div class="stat-value" id="stat-db-entries">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Get + Put Ops</div>
-          <div class="stat-value" id="stat-total-ops">0</div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top: 20px;">
-        <h3>Latency & Throughput</h3>
+    <div id="tab-system" class="tab-content">
+      <div class="card">
+        <h3>Low-Level Engine Metrics</h3>
+        <p style="font-size: 13px; color: #666; margin-bottom: 20px;">These metrics are primarily used for system debugging and resource monitoring.</p>
         <div class="grid-3">
           <div class="stat-card">
-            <div class="stat-label">Avg GET Time</div>
-            <div class="stat-value" id="stat-avg-get">0 µs</div>
+            <div class="stat-label">Mapped Database Pages</div>
+            <div class="stat-value" id="stat-total-pages">0</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Avg PUT Time</div>
-            <div class="stat-value" id="stat-avg-put">0 µs</div>
+            <div class="stat-label">Internal Get/Put Ops</div>
+            <div class="stat-value" id="stat-total-ops">0</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Total GETs</div>
-            <div class="stat-value" id="stat-total-gets">0</div>
+            <div class="stat-label">Cache Consistency</div>
+            <div class="stat-value" id="stat-checksum-failures">Healthy</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-label">Total PUTs</div>
-            <div class="stat-value" id="stat-total-puts">0</div>
+        </div>
+        
+        <div style="margin-top: 30px;">
+          <h3>I/O Performance</h3>
+          <div class="grid-2">
+            <div class="card">
+              <h4>Read/Write Throughput</h4>
+              <div style="font-size: 14px; margin-top: 10px;">
+                Disk Reads: <span id="stat-disk-reads" style="font-weight: bold;">0</span><br>
+                Disk Writes: <span id="stat-disk-writes" style="font-weight: bold;">0</span>
+              </div>
+            </div>
+            <div class="card">
+              <h4>Operation Latency</h4>
+              <div style="font-size: 14px; margin-top: 10px;">
+                Avg GET Latency: <span id="stat-avg-get" style="font-weight: bold;">0 µs</span><br>
+                Avg PUT Latency: <span id="stat-avg-put" style="font-weight: bold;">0 µs</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -599,7 +610,7 @@ static const char* kIndexHtml_Part2a = R"HTML(
       if (target) target.classList.add('active');
       
       if (tabName === 'browse') refreshBrowse();
-      if (tabName === 'stats') refreshStats();
+      if (tabName === 'system') refreshStats();
       if (tabName === 'files') refreshFiles();
       if (tabName === 'vector') refreshVectorStats();
     }
@@ -663,24 +674,69 @@ static const char* kIndexHtml_Part2a = R"HTML(
         const stats = await res.json();
         
         document.getElementById('stat-total-pages').textContent = stats.total_pages;
+        document.getElementById('stat-total-ops').textContent = stats.total_gets + stats.total_puts;
         document.getElementById('stat-disk-reads').textContent = stats.total_reads;
         document.getElementById('stat-disk-writes').textContent = stats.total_writes;
-        document.getElementById('stat-checksum-failures').textContent = stats.checksum_failures;
-        document.getElementById('stat-db-entries').textContent = stats.total_entries;
-        document.getElementById('stat-total-ops').textContent = stats.total_gets + stats.total_puts;
-        document.getElementById('stat-avg-get').textContent = stats.avg_get_time_us.toFixed(2) + ' µs';
-        document.getElementById('stat-avg-put').textContent = stats.avg_put_time_us.toFixed(2) + ' µs';
-        document.getElementById('stat-total-gets').textContent = stats.total_gets;
-        document.getElementById('stat-total-puts').textContent = stats.total_puts;
-
-        document.getElementById('header-entries').textContent = stats.total_entries;
-        document.getElementById('header-pages').textContent = stats.total_pages;
-        document.getElementById('header-ops').textContent = stats.total_gets + stats.total_puts;
+        document.getElementById('stat-avg-get').textContent = stats.avg_get_time_us.toFixed(1) + ' µs';
+        document.getElementById('stat-avg-put').textContent = stats.avg_put_time_us.toFixed(1) + ' µs';
+        
+        const healthEl = document.getElementById('db-health');
+        if (stats.checksum_failures > 0) {
+          document.getElementById('stat-checksum-failures').textContent = stats.checksum_failures + ' (CRITICAL)';
+          healthEl.textContent = 'Degraded';
+          healthEl.style.background = '#f44336';
+        } else {
+          document.getElementById('stat-checksum-failures').textContent = 'Healthy';
+          healthEl.textContent = 'System Healthy';
+          healthEl.style.background = '#4caf50';
+        }
       } catch (err) {
         log('Failed to refresh stats: ' + err.message, 'error');
       }
     }
 
+    async function uploadSiftFile() {
+      const input = document.getElementById('file-upload-input');
+      const container = document.getElementById('upload-progress-container');
+      const fill = document.getElementById('upload-progress-fill');
+      const status = document.getElementById('upload-status');
+      
+      if (!input.files || input.files.length === 0) {
+        log('Please select a file first', 'error');
+        return;
+      }
+
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      container.style.display = 'block';
+      status.textContent = 'Uploading ' + file.name + '...';
+      fill.style.width = '10%';
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const path = await res.text();
+          fill.style.width = '100%';
+          status.textContent = 'Upload complete: ' + path;
+          document.getElementById('sift-path').value = path;
+          log(`✓ Uploaded "${file.name}" to "${path}"`, 'success');
+          await refreshFiles();
+        } else {
+          const err = await res.text();
+          status.textContent = 'Upload failed: ' + err;
+          log(`✗ Upload failed: ${err}`, 'error');
+        }
+      } catch (err) {
+        status.textContent = 'Upload error: ' + err.message;
+        log('Error: ' + err.message, 'error');
+      }
+    }
 )HTML";
 
 static const char* kIndexHtml_Part2b = R"HTML(
@@ -1256,6 +1312,7 @@ static const char* kIndexHtml_Part3 = R"HTML(
           log(`✓ ${text}`, 'success');
           await refreshVectorStats();
           await refreshBrowse();
+          setTimeout(() => switchTab('browse'), 500);
         } else {
           log(`✗ Bulk load failed: ${await res.text()}`, 'error');
         }
@@ -1307,6 +1364,16 @@ static const char* kIndexHtml_Part3 = R"HTML(
       const values = buildRandomVector(dimension);
       document.getElementById('vector-data').value = values.join(',');
       log(`Generated random ${dimension}-dimensional vector`, 'info');
+    }
+
+    function generateRandomQuery() {
+      if (!configuredVectorDimension || configuredVectorDimension <= 0) {
+        log('Vector dimension not available yet', 'error');
+        return;
+      }
+      const values = buildRandomVector(configuredVectorDimension);
+      document.getElementById('query-vector').value = values.join(',');
+      log(`Generated random query vector (${configuredVectorDimension}-dim)`, 'info');
     }
 
     function copyVectorToQuery() {
@@ -1415,6 +1482,49 @@ int main(int argc, char** argv) {
 
   server.Get("/", [&](const httplib::Request&, httplib::Response& res) {
     res.set_content(kIndexHtml, "text/html; charset=utf-8");
+  });
+
+  server.Post("/api/upload", [&](const httplib::Request& req, httplib::Response& res) {
+    if (!req.has_file("file")) {
+      res.status = 400;
+      res.set_content("No file uploaded", "text/plain");
+      return;
+    }
+
+    const auto& file = req.get_file_value("file");
+    const std::string filename = file.filename;
+
+    // Choose destination based on name or default
+    std::string upload_dir = "uploads";
+    if (filename.find(".fvecs") != std::string::npos ||
+        filename.find(".ivecs") != std::string::npos) {
+      upload_dir = "sift";
+      // Special handle for the user's requested path if we are on Windows
+#ifdef _WIN32
+      const std::string james_sift_path = "C:\\Users\\James\\sift";
+      if (fs::exists("C:\\Users\\James")) {
+        upload_dir = james_sift_path;
+      }
+#endif
+    }
+
+    try {
+      if (!fs::exists(upload_dir)) {
+        fs::create_directories(upload_dir);
+      }
+
+      const std::string filepath = upload_dir + "/" + filename;
+      std::ofstream ofs(filepath, std::ios::binary);
+      ofs.write(file.content.data(), file.content.size());
+      ofs.close();
+
+      Log(LogLevel::kInfo,
+          "File uploaded: " + filepath + " (" + std::to_string(file.content.size()) + " bytes)");
+      res.set_content(filepath, "text/plain");
+    } catch (const std::exception& e) {
+      res.status = 500;
+      res.set_content(std::string("Upload failed: ") + e.what(), "text/plain");
+    }
   });
 
   server.Get("/dashboard", [&](const httplib::Request&, httplib::Response& res) {
@@ -1591,6 +1701,33 @@ int main(int argc, char** argv) {
     json << "]}";
     res.set_content(json.str(), "application/json");
   });
+
+  // Vector BULK LOAD from local file endpoint
+  server.Post(
+      "/api/vector/bulk_load_file", [&](const httplib::Request& req, httplib::Response& res) {
+        if (!req.has_param("path")) {
+          res.status = 400;
+          res.set_content("Missing path parameter", "text/plain");
+          return;
+        }
+
+        const std::string path = req.get_param_value("path");
+        const std::string prefix = req.has_param("prefix") ? req.get_param_value("prefix") : "sift";
+        const int limit = req.has_param("limit") && !req.get_param_value("limit").empty()
+                              ? std::stoi(req.get_param_value("limit"))
+                              : -1;
+
+        std::lock_guard<std::mutex> lock(engine_mutex);
+        const auto status = engine.BulkLoadFile(path, prefix, limit);
+
+        if (!status.ok()) {
+          res.status = 500;
+          res.set_content(status.ToString(), "text/plain");
+          return;
+        }
+
+        res.set_content("Bulk load complete", "text/plain");
+      });
 
   Log(LogLevel::kInfo, "Vector API endpoints registered");
 

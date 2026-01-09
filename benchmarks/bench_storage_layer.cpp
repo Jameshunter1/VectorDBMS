@@ -272,3 +272,5 @@ static void BM_BufferPool_PinUnpin(benchmark::State& state) {
   Cleanup();
 }
 BENCHMARK(BM_BufferPool_PinUnpin);
+
+BENCHMARK_MAIN();

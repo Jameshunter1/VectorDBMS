@@ -1,5 +1,6 @@
-/*Used to represent the status of an operation. It is used to indicate whether an operation was successful or not.
-*/
+/*Used to represent the status of an operation. It is used to indicate whether an operation was
+ * successful or not.
+ */
 #include <core_engine/common/status.hpp>
 
 #include <sstream>

@@ -1,63 +1,19 @@
-# VectorDBMS Documentation
+---
+# VectorDBMS Documentation Index
 
-Welcome to the VectorDBMS documentation! This directory contains all project documentation organized by topic.
+All project documentation is now consolidated in **[DOCUMENTATION.md](DOCUMENTATION.md)**.
 
-## 📚 Documentation Index
+- **[Complete Documentation](DOCUMENTATION.md)** — Single source of truth for build, API, deployment, performance, and security
+- **[Contributing Guidelines](CONTRIBUTING.md)** — How to contribute
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** — Community standards
+- **[Cleanup Summary](CLEANUP_SUMMARY.md)** — Project cleanup and refactoring notes
+- **[Scripts Documentation](../scripts/README.md)** — PowerShell scripts for demos/utilities
+- **[Source Code Documentation](../src/README.md)** — Source code organization
+- **[Python SDK](../python-sdk/README.md)** — Python client library
 
-### Getting Started
+For all usage, build, and API questions, start with [DOCUMENTATION.md](DOCUMENTATION.md).
 
-- **[Quick Start Guide](../README.md#quick-start)** - Get up and running in 5 minutes
-- **[Build & Run Commands](BUILD_AND_RUN_COMMANDS.md)** - Step-by-step build instructions for all platforms
-- **[Command Reference](COMMAND_REFERENCE.md)** - Complete reference of all CLI commands, build commands, and workflows
-- **[GitHub MCP Setup](MCP_SETUP.md)** - Integration guide for AI assistants
-
-### Complete Documentation
-
-- **[Complete Documentation](DOCUMENTATION.md)** - Comprehensive guide covering:
-  - Building from source (Windows, Linux, macOS)
-  - Docker deployment
-  - API reference (HTTP & C++)
-  - Performance tuning
-  - Security features
-  - Contributing guidelines
-
-### Project Policies
-
-- **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute to the project
-- **[Code of Conduct](CODE_OF_CONDUCT.md)** - Community standards and expectations
-
-### Additional Resources
-
-- **[Cleanup Summary](CLEANUP_SUMMARY.md)** - Project cleanup and refactoring notes
-- **[Scripts Documentation](../scripts/README.md)** - PowerShell scripts for demos and utilities
-- **[Source Code Documentation](../src/README.md)** - Source code organization
-- **[Python SDK](../python-sdk/README.md)** - Python client library
-
-## 🚀 Quick Links
-
-### For Developers
-
-```powershell
-# Windows - Build and test
-cmake --preset=windows-vs2022-x64-debug
-cmake --build build/windows-vs2022-x64-debug
-cd build/windows-vs2022-x64-debug && ctest -C Debug --output-on-failure
-```
-
-```bash
-# Linux/macOS - Build and test
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc)
-ctest --test-dir build --output-on-failure
-```
-
-### For Users
-
-- **HTTP API**: See [API Reference](DOCUMENTATION.md#api-reference)
-- **Docker**: See [Docker Deployment](DOCUMENTATION.md#docker-deployment)
-- **Performance**: See [Performance Guide](DOCUMENTATION.md#performance)
-
-## 📖 Documentation Structure
+---
 
 ```
 docs/

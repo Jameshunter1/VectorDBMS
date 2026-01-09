@@ -9,6 +9,7 @@
 // - DiskManager provides persistent storage backend.
 
 #include <core_engine/common/logger.hpp>
+#include <core_engine/vector/sift_parser.hpp>
 
 #include <chrono>
 #include <filesystem>
@@ -764,6 +765,35 @@ Status Engine::Flush() {
 
   // Flush log without ending batch
   return log_manager_->ForceFlush();
+}
+
+Status Engine::BulkLoadFile(const std::string& path, const std::string& prefix, int limit) {
+  vector::SiftParser parser(path);
+  if (!parser.Open()) {
+    return Status::NotFound("Could not open file: " + path);
+  }
+
+  Log(LogLevel::kInfo, "Engine: Starting bulk load from " + path);
+
+  int count = 0;
+  int success = 0;
+  while (auto vec_opt = parser.Next()) {
+    if (limit > 0 && count >= limit)
+      break;
+
+    const std::string key = prefix + "_" + std::to_string(count);
+    if (PutVector(key, *vec_opt).ok()) {
+      success++;
+    }
+    count++;
+
+    if (count % 1000 == 0) {
+      Log(LogLevel::kInfo, "... Engine loaded " + std::to_string(count) + " vectors");
+    }
+  }
+
+  Log(LogLevel::kInfo, "Engine: Bulk load complete: " + std::to_string(success) + " vectors");
+  return Status::Ok();
 }
 
 } // namespace core_engine

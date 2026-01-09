@@ -33,7 +33,8 @@ namespace core_engine {
 // Forward declarations
 namespace vector {
 class HNSWIndex;
-}
+class SiftParser;
+} // namespace vector
 
 // ScanOptions: Configuration for range queries (v1.4)
 // Moved outside Engine class to avoid forward reference issues with default parameters
@@ -128,6 +129,9 @@ public:
     double avg_connections_per_node = 0.0; // HNSW graph density
   };
   VectorStats GetVectorStats() const;
+
+  // v2.1: SIFT Bulk loader integration
+  Status BulkLoadFile(const std::string& path, const std::string& prefix, int limit = -1);
 
   // Executes a statement (placeholder). Eventually this takes a parsed AST
   // or physical plan rather than raw SQL text.

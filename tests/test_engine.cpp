@@ -2,6 +2,7 @@
 
 #include <core_engine/common/config.hpp>
 #include <core_engine/engine.hpp>
+#include <core_engine/vector/sift_parser.hpp>
 #include <core_engine/vector/vector.hpp>
 
 #include <chrono>

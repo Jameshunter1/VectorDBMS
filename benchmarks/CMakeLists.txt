@@ -89,7 +89,6 @@ endif()
 
 # Build benchmarks executable
 add_executable(core_engine_benchmarks
-  bench_page_file.cpp
   bench_advanced.cpp
   bench_storage_layer.cpp
   bench_vector_ops.cpp

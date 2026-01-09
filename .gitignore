@@ -50,3 +50,6 @@ __pycache__/
 # Local VS Code settings (workspace settings can be shared)
 .vscode/*.log
 .vscode/settings.json
+
+# Environment variables
+.env

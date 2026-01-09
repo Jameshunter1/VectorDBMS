@@ -66,6 +66,7 @@ target_sources(core_engine
     src/lib/performance/metrics.cpp
     src/lib/vector/vector.cpp
     src/lib/vector/hnsw_index.cpp
+    src/lib/vector/sift_parser.cpp
 )
 
 if(CORE_ENGINE_ENABLE_IO_URING AND UNIX AND NOT APPLE)
@@ -75,7 +76,7 @@ if(CORE_ENGINE_ENABLE_IO_URING AND UNIX AND NOT APPLE)
     pkg_check_modules(LIBURING IMPORTED_TARGET QUIET liburing)
     if(LIBURING_FOUND)
       target_link_libraries(core_engine PRIVATE PkgConfig::LIBURING)
-      target_compile_definitions(core_engine PRIVATE CORE_ENGINE_HAS_IO_URING=1)
+      target_compile_definitions(core_engine PUBLIC CORE_ENGINE_HAS_IO_URING=1)
       set(CORE_ENGINE_HAS_IO_URING TRUE)
     endif()
   endif()
@@ -86,7 +87,7 @@ if(CORE_ENGINE_ENABLE_IO_URING AND UNIX AND NOT APPLE)
     if(LIBURING_INCLUDE_DIR AND LIBURING_LIBRARY)
       target_include_directories(core_engine PRIVATE ${LIBURING_INCLUDE_DIR})
       target_link_libraries(core_engine PRIVATE ${LIBURING_LIBRARY})
-      target_compile_definitions(core_engine PRIVATE CORE_ENGINE_HAS_IO_URING=1)
+      target_compile_definitions(core_engine PUBLIC CORE_ENGINE_HAS_IO_URING=1)
       set(CORE_ENGINE_HAS_IO_URING TRUE)
     endif()
   endif()

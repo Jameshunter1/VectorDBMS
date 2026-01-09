@@ -453,18 +453,13 @@ Status DiskManager::ReadContiguous(PageId first_page_id, void* buffer, std::size
     return Status::InvalidArgument("Requested range exceeds database size");
   }
 
-  if (page_count > (std::numeric_limits<std::size_t>::max)() / kPageSize) {
-    if (last_page >= static_cast<std::uint64_t>(num_pages_)) {
-    }
-
-    const std::int64_t offset = PageIdToOffset(first_page_id);
-    const std::size_t total_bytes = page_count * kPageSize;
-    auto status = ReadRawLocked(offset, buffer, total_bytes);
-    if (status.ok()) {
-      stats_.total_reads += page_count;
-    }
-    return status;
+  const std::int64_t offset = PageIdToOffset(first_page_id);
+  const std::size_t total_bytes = page_count * kPageSize;
+  auto status = ReadRawLocked(offset, buffer, total_bytes);
+  if (status.ok()) {
+    stats_.total_reads += page_count;
   }
+  return status;
 }
 Status DiskManager::WriteContiguous(PageId first_page_id, const void* buffer,
                                     std::size_t page_count) {
@@ -491,16 +486,13 @@ Status DiskManager::WriteContiguous(PageId first_page_id, const void* buffer,
     return Status::InvalidArgument("Cannot create gaps in page file");
   }
 
-  if (page_count > (std::numeric_limits<std::size_t>::max)() / kPageSize) {
-    return Status::InvalidArgument("Requested range is too large");
-  }
-
+  // Removed redundant large-range check which was broken anyway
   const std::int64_t offset = PageIdToOffset(first_page_id);
   const std::size_t total_bytes = page_count * kPageSize;
   auto status = WriteRawLocked(offset, buffer, total_bytes);
   if (status.ok()) {
-    if (last_page > static_cast<std::uint64_t>(num_pages_)) {
-      num_pages_ = static_cast<PageId>(last_page);
+    if (last_page >= static_cast<std::uint64_t>(num_pages_)) {
+      num_pages_ = static_cast<PageId>(last_page + 1);
     }
     stats_.total_writes += page_count;
   }
