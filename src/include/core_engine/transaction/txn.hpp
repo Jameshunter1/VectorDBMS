@@ -16,7 +16,8 @@ using TxnId = std::uint64_t;
 
 class Txn {
 public:
-  explicit Txn(TxnId id) : id_(id) {}
+  explicit Txn(TxnId id) : id_(id) {
+  }
 
   TxnId id() const {
     return id_;

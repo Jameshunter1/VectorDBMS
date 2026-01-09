@@ -12,7 +12,8 @@
 
 namespace core_engine {
 
-PageFile::PageFile(std::filesystem::path path) : path_(std::move(path)) {}
+PageFile::PageFile(std::filesystem::path path) : path_(std::move(path)) {
+}
 
 Status PageFile::OpenOrCreate() {
   // Create the file if it doesn't exist.

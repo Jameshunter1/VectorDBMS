@@ -1,28 +1,39 @@
 #include <core_engine/common/logger.hpp>
 #include <core_engine/storage/disk_manager.hpp>
-
-#include <algorithm>
+#include <core_engine/storage/page.hpp> // Ensure Page and PageId are defined
+#define CORE_ENGINE_DISK_MANAGER_HPP
 #include <array>
-#include <cerrno>
+
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
-#include <limits>
-#include <span>
+#include <future>
+
 #include <string>
 #include <system_error>
 #include <utility>
 #include <vector>
 
+#include <algorithm>
+#include <cstdio>
+#include <limits>
+
+// For Windows-specific file operations
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <io.h>
+#include <io.h> // For _lseeki64, _open, _setmode etc.
 #include <windows.h>
+#undef min
+#undef max
+
+#define OFFSET_TYPE __int64 // Use 64-bit offset type on Windows
 #else
 #include <fcntl.h>
 #include <unistd.h>
+#define FSEEK fseeko // Use 64-bit fseek on Unix-like systems
+#define OFFSET_TYPE off_t
 #endif
 
 namespace core_engine {
@@ -30,35 +41,12 @@ namespace core_engine {
 namespace fs = std::filesystem;
 
 DiskManager::DiskManager(std::filesystem::path db_file, Options options)
-    : db_file_(std::move(db_file)), file_handle_(nullptr), is_open_(false), num_pages_(0),
-      options_(std::move(options)), file_descriptor_(-1), use_direct_io_(false)
-#if defined(CORE_ENGINE_HAS_IO_URING)
-      ,
-      io_uring_initialized_(false),
-      io_uring_queue_depth_(options_.io_uring_queue_depth == 0 ? 64
-                                                               : options_.io_uring_queue_depth),
-      fixed_buffers_registered_(false), fixed_buffer_base_(nullptr), fixed_buffer_count_(0)
-#endif
-{
-#ifdef _WIN32
-  direct_file_handle_ = INVALID_HANDLE_VALUE;
-#endif
-#if !defined(CORE_ENGINE_HAS_IO_URING)
-  options_.enable_io_uring = false;
-  options_.io_uring_queue_depth = 0;
-  options_.register_fixed_buffers = false;
-#else
-  if (options_.io_uring_queue_depth == 0) {
-    options_.io_uring_queue_depth = 64;
-    io_uring_queue_depth_ = 64;
-  }
-#endif
+    : db_file_(std::move(db_file)), options_(options), stats_{} {
 }
 
 DiskManager::~DiskManager() {
   Close();
 }
-
 Status DiskManager::Open() {
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -100,6 +88,36 @@ Status DiskManager::Open() {
   }
 #endif
 
+  if (num_pages_ == 0) {
+    // Initialize reserved Page 0 (Header/Superblock)
+    // Use Page object to ensure 4KB alignment required for Direct I/O
+    Page page;
+    page.Reset(kInvalidPageId); // Zero out data, set ID to 0
+
+    auto status = WriteRawLocked(0, page.GetRawPage(), kPageSize);
+    if (!status.ok()) {
+      // Close handles on failure
+      if (use_direct_io_) {
+#ifdef _WIN32
+        if (direct_file_handle_ != INVALID_HANDLE_VALUE) {
+          CloseHandle(static_cast<HANDLE>(direct_file_handle_));
+          direct_file_handle_ = INVALID_HANDLE_VALUE;
+        }
+#else
+        if (file_descriptor_ >= 0) {
+          ::close(file_descriptor_);
+          file_descriptor_ = -1;
+        }
+#endif
+      } else if (file_handle_) {
+        std::fclose(file_handle_);
+        file_handle_ = nullptr;
+      }
+      return status;
+    }
+    num_pages_ = 1;
+  }
+
   is_open_ = true;
 
   Log(LogLevel::kDebug,
@@ -108,7 +126,6 @@ Status DiskManager::Open() {
 
   return Status::Ok();
 }
-
 void DiskManager::Close() {
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -116,7 +133,9 @@ void DiskManager::Close() {
     return;
   }
 
+#if defined(CORE_ENGINE_HAS_IO_URING)
   ShutdownIoUringLocked();
+#endif
 
   if (use_direct_io_) {
 #ifdef _WIN32
@@ -145,7 +164,6 @@ void DiskManager::Close() {
 
   Log(LogLevel::kDebug, "DiskManager closed: " + db_file_.string());
 }
-
 Status DiskManager::OpenBufferedLocked() {
   const bool file_exists = fs::exists(db_file_);
 
@@ -165,20 +183,37 @@ Status DiskManager::OpenBufferedLocked() {
     return Status::IoError("Failed to open file: " + db_file_.string());
   }
 
-  if (std::fseek(file_handle_, 0, SEEK_END) != 0) {
+#ifdef _WIN32
+  if (_fseeki64(file_handle_, 0, SEEK_END) != 0) {
     std::fclose(file_handle_);
     file_handle_ = nullptr;
     return Status::IoError("Failed to seek file end");
   }
 
-  const long file_size = std::ftell(file_handle_);
+  const __int64 file_size = _ftelli64(file_handle_);
   if (file_size < 0) {
     std::fclose(file_handle_);
     file_handle_ = nullptr;
     return Status::IoError("Failed to determine file size");
   }
 
-  std::fseek(file_handle_, 0, SEEK_SET);
+  _fseeki64(file_handle_, 0, SEEK_SET);
+#else
+  if (fseeko(file_handle_, 0, SEEK_END) != 0) {
+    std::fclose(file_handle_);
+    file_handle_ = nullptr;
+    return Status::IoError("Failed to seek file end");
+  }
+
+  const off_t file_size = ftello(file_handle_);
+  if (file_size < 0) {
+    std::fclose(file_handle_);
+    file_handle_ = nullptr;
+    return Status::IoError("Failed to determine file size");
+  }
+
+  fseeko(file_handle_, 0, SEEK_SET);
+#endif
 
   if (file_size % kPageSize != 0) {
     std::fclose(file_handle_);
@@ -205,7 +240,6 @@ Status DiskManager::OpenBufferedLocked() {
 
   return Status::Ok();
 }
-
 Status DiskManager::OpenDirectLocked() {
 #ifdef _WIN32
   const DWORD access = GENERIC_READ | GENERIC_WRITE;
@@ -272,12 +306,34 @@ Status DiskManager::OpenDirectLocked() {
   return Status::Ok();
 #endif
 }
-
 Status DiskManager::ReadPage(PageId page_id, Page* page) {
-  std::array<PageReadRequest, 1> requests{{PageReadRequest{page_id, page}}};
-  return ReadPagesBatch(requests);
-}
+  if (!is_open_) {
+    return Status::IoError("DiskManager not open");
+  }
 
+  // Use the helper to validate page_id range
+  if (!IsValidPageId(page_id)) {
+    return Status::NotFound("Invalid page ID: " + std::to_string(page_id));
+  }
+
+  const std::int64_t offset = PageIdToOffset(page_id);
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  // FIX: Delegate to ReadRawLocked to handle 64-bit offsets and Direct I/O paths
+  Status status = ReadRawLocked(offset, page->GetRawPage(), kPageSize);
+  if (!status.ok()) {
+    return status;
+  }
+
+  // Always validate the data read from disk
+  status = ValidateReadResult(page_id, page);
+  if (!status.ok()) {
+    return status;
+  }
+
+  stats_.total_reads++;
+  return Status::Ok();
+}
 Status DiskManager::ReadPagesBatch(std::span<PageReadRequest> requests) {
   if (requests.empty()) {
     return Status::Ok();
@@ -297,12 +353,34 @@ Status DiskManager::ReadPagesBatch(std::span<PageReadRequest> requests) {
 
   return ProcessReadRequestsLocked(requests);
 }
-
 Status DiskManager::WritePage(PageId page_id, const Page* page) {
-  std::array<PageWriteRequest, 1> requests{{PageWriteRequest{page_id, page}}};
-  return WritePagesBatch(requests);
-}
+  if (!is_open_) {
+    return Status::IoError("DiskManager not open");
+  }
 
+  // Use IsValidPageId for consistency
+  if (!IsValidPageId(page_id)) {
+    return Status::NotFound("Invalid page ID: " + std::to_string(page_id));
+  }
+
+  // Calculate the offset for the page in the file
+  const std::int64_t offset = PageIdToOffset(page_id);
+
+  // Update the checksum before writing
+  // Note: const_cast is necessary because we're updating metadata even on a "const" page write
+  const_cast<Page*>(page)->UpdateChecksum();
+
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  // FIX: Use WriteRawLocked to handle both buffered and Direct I/O correctly
+  Status status = WriteRawLocked(offset, page->GetRawPage(), kPageSize);
+  if (!status.ok()) {
+    return status;
+  }
+
+  stats_.total_writes++;
+  return Status::Ok();
+}
 Status DiskManager::WritePagesBatch(std::span<PageWriteRequest> requests) {
   if (requests.empty()) {
     return Status::Ok();
@@ -326,7 +404,6 @@ Status DiskManager::WritePagesBatch(std::span<PageWriteRequest> requests) {
 
   return ProcessWriteRequestsLocked(requests);
 }
-
 Status DiskManager::ProcessReadRequestsLocked(std::span<PageReadRequest> requests) {
   for (const auto& request : requests) {
     if (!IsValidPageId(request.page_id)) {
@@ -354,7 +431,6 @@ Status DiskManager::ProcessReadRequestsLocked(std::span<PageReadRequest> request
   }
   return Status::Ok();
 }
-
 Status DiskManager::ReadContiguous(PageId first_page_id, void* buffer, std::size_t page_count) {
   if (page_count == 0) {
     return Status::Ok();
@@ -378,18 +454,18 @@ Status DiskManager::ReadContiguous(PageId first_page_id, void* buffer, std::size
   }
 
   if (page_count > (std::numeric_limits<std::size_t>::max)() / kPageSize) {
-    return Status::InvalidArgument("Requested range is too large");
-  }
+    if (last_page >= static_cast<std::uint64_t>(num_pages_)) {
+    }
 
-  const std::int64_t offset = PageIdToOffset(first_page_id);
-  const std::size_t total_bytes = page_count * kPageSize;
-  auto status = ReadRawLocked(offset, buffer, total_bytes);
-  if (status.ok()) {
-    stats_.total_reads += page_count;
+    const std::int64_t offset = PageIdToOffset(first_page_id);
+    const std::size_t total_bytes = page_count * kPageSize;
+    auto status = ReadRawLocked(offset, buffer, total_bytes);
+    if (status.ok()) {
+      stats_.total_reads += page_count;
+    }
+    return status;
   }
-  return status;
 }
-
 Status DiskManager::WriteContiguous(PageId first_page_id, const void* buffer,
                                     std::size_t page_count) {
   if (page_count == 0) {
@@ -430,7 +506,6 @@ Status DiskManager::WriteContiguous(PageId first_page_id, const void* buffer,
   }
   return status;
 }
-
 Status DiskManager::ProcessWriteRequestsLocked(std::span<PageWriteRequest> requests) {
   for (const auto& request : requests) {
     if (!IsValidPageId(request.page_id)) {
@@ -465,9 +540,9 @@ Status DiskManager::ProcessWriteRequestsLocked(std::span<PageWriteRequest> reque
       return status;
     }
   }
+
   return Status::Ok();
 }
-
 Status DiskManager::PerformSingleReadLocked(PageId page_id, Page* page) {
   const std::int64_t offset = PageIdToOffset(page_id);
   auto status = ReadRawLocked(offset, page->GetRawPage(), kPageSize);
@@ -483,7 +558,6 @@ Status DiskManager::PerformSingleReadLocked(PageId page_id, Page* page) {
   ++stats_.total_reads;
   return Status::Ok();
 }
-
 Status DiskManager::PerformSingleWriteLocked(PageId page_id, const Page* page) {
   const std::int64_t offset = PageIdToOffset(page_id);
   auto status = WriteRawLocked(offset, page->GetRawPage(), kPageSize);
@@ -494,7 +568,6 @@ Status DiskManager::PerformSingleWriteLocked(PageId page_id, const Page* page) {
   ++stats_.total_writes;
   return Status::Ok();
 }
-
 Status DiskManager::ValidateReadResult(PageId page_id, Page* page) {
   if (!page->VerifyChecksum()) {
     ++stats_.checksum_failures;
@@ -509,6 +582,8 @@ Status DiskManager::ValidateReadResult(PageId page_id, Page* page) {
   return Status::Ok();
 }
 
+// Page 0 is reserved, so first valid page is 1
+// Page 0 exists and is the superblock
 PageId DiskManager::AllocatePage() {
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -516,24 +591,8 @@ PageId DiskManager::AllocatePage() {
     return kInvalidPageId;
   }
 
-  // Page 0 is reserved, so first valid page is 1
-  // New pages are appended to the end of the file
-  const PageId new_page_id = num_pages_ + 1;
-
-  const std::int64_t offset = PageIdToOffset(new_page_id);
-
-  Page empty_page;
-  empty_page.Reset(new_page_id);
-  empty_page.UpdateChecksum();
-
-  const Status status = WriteRawLocked(offset, empty_page.GetRawPage(), kPageSize);
-  if (!status.ok()) {
-    Log(LogLevel::kError, "Failed to allocate page: " + std::string(status.message()));
-    return kInvalidPageId;
-  }
-
-  // Update num_pages_ to reflect the new highest page
-  num_pages_ = new_page_id;
+  const PageId new_page_id = num_pages_;
+  ++num_pages_;
   ++stats_.total_allocations;
 
   return new_page_id;
@@ -599,8 +658,8 @@ Status DiskManager::ReadRawLocked(std::int64_t offset, void* buffer, std::size_t
     std::size_t remaining = size;
     std::int64_t current_offset = offset;
     while (remaining > 0) {
-      const DWORD chunk =
-          static_cast<DWORD>(std::min<std::size_t>(remaining, std::numeric_limits<DWORD>::max()));
+      const DWORD chunk = static_cast<DWORD>(
+          std::min(remaining, static_cast<std::size_t>(std::numeric_limits<DWORD>::max())));
       OVERLAPPED overlapped{};
       overlapped.Offset = static_cast<DWORD>(current_offset & 0xffffffffu);
       overlapped.OffsetHigh = static_cast<DWORD>((current_offset >> 32) & 0xffffffffu);
@@ -650,7 +709,7 @@ Status DiskManager::ReadRawLocked(std::int64_t offset, void* buffer, std::size_t
     return Status::IoError("Failed to seek for buffered read");
   }
 #else
-  if (fseeko(file_handle_, offset, SEEK_SET) != 0) {
+  if (fseeko(file_handle_, static_cast<off_t>(offset), SEEK_SET) != 0) {
     return Status::IoError("Failed to seek for buffered read");
   }
 #endif
@@ -689,8 +748,8 @@ Status DiskManager::WriteRawLocked(std::int64_t offset, const void* buffer, std:
     std::size_t remaining = size;
     std::int64_t current_offset = offset;
     while (remaining > 0) {
-      const DWORD chunk =
-          static_cast<DWORD>(std::min<std::size_t>(remaining, std::numeric_limits<DWORD>::max()));
+      const DWORD chunk = static_cast<DWORD>(
+          std::min(remaining, static_cast<std::size_t>(std::numeric_limits<DWORD>::max())));
       OVERLAPPED overlapped{};
       overlapped.Offset = static_cast<DWORD>(current_offset & 0xffffffffu);
       overlapped.OffsetHigh = static_cast<DWORD>((current_offset >> 32) & 0xffffffffu);
@@ -738,7 +797,7 @@ Status DiskManager::WriteRawLocked(std::int64_t offset, const void* buffer, std:
       return Status::IoError("Failed to seek for buffered write");
     }
 #else
-    if (fseeko(file_handle_, offset, SEEK_SET) != 0) {
+    if (fseeko(file_handle_, static_cast<off_t>(offset), SEEK_SET) != 0) {
       return Status::IoError("Failed to seek for buffered write");
     }
 #endif

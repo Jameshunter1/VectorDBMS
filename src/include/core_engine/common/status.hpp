@@ -91,7 +91,8 @@ public:
   std::string ToString() const;
 
 private:
-  Status(StatusCode code, std::string message) : code_(code), message_(std::move(message)) {}
+  Status(StatusCode code, std::string message) : code_(code), message_(std::move(message)) {
+  }
 
   StatusCode code_;
   std::string message_;

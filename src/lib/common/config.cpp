@@ -1,3 +1,4 @@
+/* A configuration class for the database engine. Pur*/
 #include <core_engine/common/config.hpp>
 #include <filesystem>
 #include <system_error>

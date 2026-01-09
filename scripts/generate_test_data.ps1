@@ -7,7 +7,7 @@ Write-Host "=" * 60 -ForegroundColor Cyan
 # Check if database is running
 Write-Host "`n📡 Checking database connection..." -ForegroundColor Yellow
 try {
-    $response = Invoke-RestMethod -Uri "http://localhost:8080/api/stats" -TimeoutSec 5
+    Invoke-RestMethod -Uri "http://localhost:8080/api/stats" -TimeoutSec 5
     Write-Host "✅ Database is online!" -ForegroundColor Green
 } catch {
     Write-Host "❌ Database is not responding. Please start with: docker compose up -d" -ForegroundColor Red

@@ -212,7 +212,8 @@ MetricsCollector& GetGlobalMetrics() {
 // ============================================================================
 
 ScopedTimer::ScopedTimer(std::string metric_name)
-    : metric_name_(std::move(metric_name)), start_(std::chrono::steady_clock::now()) {}
+    : metric_name_(std::move(metric_name)), start_(std::chrono::steady_clock::now()) {
+}
 
 ScopedTimer::~ScopedTimer() {
   auto end = std::chrono::steady_clock::now();

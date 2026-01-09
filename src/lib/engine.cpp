@@ -132,7 +132,7 @@ Status Engine::Open(const DatabaseConfig& config) {
   PageId num_pages = disk_manager_->GetNumPages();
   std::size_t keys_indexed = 0;
 
-  for (PageId page_id = 1; page_id <= num_pages; ++page_id) {
+  for (PageId page_id = 1; page_id < num_pages; ++page_id) {
     auto page = buffer_pool_manager_->FetchPage(page_id);
     if (!page) {
       // DEBUG: Expected when reusing database directories (benchmarks, tests)
@@ -235,8 +235,9 @@ Status Engine::Put(std::string key, std::string value) {
     page_id_out = existing_page_id;
     page = buffer_pool_manager_->FetchPage(page_id_out);
     if (!page) {
-      log_manager_->AppendAbortRecord(txn_id, begin_lsn);
       log_manager_->ForceFlush();
+      log_manager_->AppendAbortRecord(txn_id, begin_lsn);
+
       return Status::Internal("Failed to fetch existing page from buffer pool");
     }
   } else {
@@ -446,7 +447,7 @@ Status Engine::BatchWrite(const std::vector<BatchOperation>& operations) {
 
   for (const auto& op : operations) {
     Status status = Status::Ok();
-    if (op.type == BatchOperation::Type::PUT) {
+    if (op.type == BatchOperation::Type::kPut) {
       status = Put(op.key, op.value);
     } else {
       status = Delete(op.key);
