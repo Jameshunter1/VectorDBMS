@@ -32,16 +32,13 @@ CTestTestfile.cmake
 # Catch2 / Benchmark fetch content (if used)
 _testing/
 
-# Test databases and demo directories
-test_batch_db/
-_web_demo/
---db=/
-*.db
-*.db-wal
-*.db-shm
-
 # Logs
 *.log
+build_log.txt
+
+# Test databases and demo directories
+test_db/
+test_batch_db/
 
 # Python
 __pycache__/

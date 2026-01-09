@@ -9,6 +9,7 @@ Welcome to the VectorDBMS documentation! This directory contains all project doc
 - **[Quick Start Guide](../README.md#quick-start)** - Get up and running in 5 minutes
 - **[Build & Run Commands](BUILD_AND_RUN_COMMANDS.md)** - Step-by-step build instructions for all platforms
 - **[Command Reference](COMMAND_REFERENCE.md)** - Complete reference of all CLI commands, build commands, and workflows
+- **[GitHub MCP Setup](MCP_SETUP.md)** - Integration guide for AI assistants
 
 ### Complete Documentation
 
@@ -64,6 +65,7 @@ docs/
 ├── BUILD_AND_RUN_COMMANDS.md   # Build instructions
 ├── COMMAND_REFERENCE.md         # Complete command reference
 ├── DOCUMENTATION.md             # Complete documentation
+├── MCP_SETUP.md                 # GitHub MCP setup guide
 ├── CONTRIBUTING.md              # Contribution guidelines
 ├── CODE_OF_CONDUCT.md          # Code of conduct
 └── CLEANUP_SUMMARY.md          # Cleanup notes
