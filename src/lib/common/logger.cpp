@@ -15,14 +15,12 @@ core_engine::LogLevel DetermineDefaultLogLevel() {
   core_engine::LogLevel level = core_engine::LogLevel::kDebug;
 #endif
 
-  char* env = nullptr;
-  size_t env_len = 0;
-  if (_dupenv_s(&env, &env_len, "CORE_ENGINE_LOG_LEVEL") != 0 || env == nullptr) {
+  const char* env = std::getenv("CORE_ENGINE_LOG_LEVEL");
+  if (env == nullptr) {
     return level;
   }
-
   std::string value(env);
-  free(env);
+
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
