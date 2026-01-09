@@ -85,14 +85,16 @@ TEST_CASE("Engine persists large datasets across pages") {
       REQUIRE(put_status.ok());
     }
 
-    // Verify pages.db was created and has grown (page-based architecture)
-    const auto pages_file = db_dir / "pages.db";
-    REQUIRE(std::filesystem::exists(pages_file));
+  } // Engine destructor flushes pages
 
-    // File should contain multiple pages (>100 KB with 100 x 1KB values + overhead)
-    const auto file_size = std::filesystem::file_size(pages_file);
-    REQUIRE(file_size > 100 * 1024);
-  }
+  // Verify pages.db was created and has grown (page-based architecture)
+  // Check AFTER destructor to ensure pages are flushed to disk
+  const auto pages_file = db_dir / "pages.db";
+  REQUIRE(std::filesystem::exists(pages_file));
+
+  // File should contain multiple pages (>100 KB with 100 x 1KB values + overhead)
+  const auto file_size = std::filesystem::file_size(pages_file);
+  REQUIRE(file_size > 100 * 1024);
 
   // Restart and verify all values are readable via WAL replay
   {
@@ -386,21 +388,21 @@ TEST_CASE("Engine BatchWrite handles mixed operations") {
 
   // Update some existing keys
   for (int i = 0; i < 25; i++) {
-    ops.push_back({core_engine::Engine::BatchOperation::Type::PUT, "key" + std::to_string(i),
+    ops.push_back({core_engine::Engine::BatchOperation::Type::kPut, "key" + std::to_string(i),
                    "updated" + std::to_string(i)});
   }
 
   // Delete some keys
   for (int i = 25; i < 50; i++) {
     ops.push_back({
-        core_engine::Engine::BatchOperation::Type::DELETE, "key" + std::to_string(i),
+        core_engine::Engine::BatchOperation::Type::kDelete, "key" + std::to_string(i),
         "" // Empty value for DELETE
     });
   }
 
   // Add new keys
   for (int i = 50; i < 100; i++) {
-    ops.push_back({core_engine::Engine::BatchOperation::Type::PUT, "key" + std::to_string(i),
+    ops.push_back({core_engine::Engine::BatchOperation::Type::kPut, "key" + std::to_string(i),
                    "new" + std::to_string(i)});
   }
 
@@ -441,7 +443,7 @@ TEST_CASE("Engine Scan returns correct range results") {
   // Populate with sorted keys
   for (int i = 0; i < 100; i++) {
     std::string key =
-        "key_" + std::string(3 - std::min(3, static_cast<int>(std::to_string(i).length())), '0') +
+        "key_" + std::string(3 - (std::min)(3, static_cast<int>(std::to_string(i).length())), '0') +
         std::to_string(i);
     engine.Put(key, "value" + std::to_string(i));
   }

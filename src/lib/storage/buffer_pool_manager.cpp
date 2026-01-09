@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <limits>
+#include <mutex> // Add this include for std::mutex
 
 namespace core_engine {
 
@@ -19,6 +20,8 @@ namespace core_engine {
 BufferPoolManager::BufferPoolManager(std::size_t pool_size, DiskManager* disk_manager)
     : pool_size_(pool_size), pages_(new Page[pool_size]), disk_manager_(disk_manager),
       replacer_(std::make_unique<LRUKReplacer>(2, pool_size)) { // k=2 for LRU-2
+
+  std::mutex mutex_; // Initialize mutex
 
   // Initialize free list with all frames
   for (std::size_t i = 0; i < pool_size_; ++i) {
@@ -31,9 +34,9 @@ BufferPoolManager::BufferPoolManager(std::size_t pool_size, DiskManager* disk_ma
 }
 
 BufferPoolManager::~BufferPoolManager() {
-  // Flush all dirty pages before shutdown
-  FlushAllPages();
+  FlushAllPages(); // Flush all dirty pages before shutdown
   delete[] pages_;
+  // No need to destroy std::mutex explicitly
   Log(LogLevel::kDebug, "BufferPoolManager destroyed");
 }
 

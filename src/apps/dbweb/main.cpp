@@ -1283,7 +1283,7 @@ int main(int argc, char** argv) {
   using core_engine::Log;
   using core_engine::LogLevel;
 
-  const std::string db_dir = (argc >= 2) ? argv[1] : "./_web_demo";
+  const std::string db_dir = (argc >= 2) ? argv[1] : "./dbweb";
   const int port = (argc >= 3) ? std::stoi(argv[2]) : 8080;
 
   std::size_t vector_dimension = 128;
@@ -1322,6 +1322,8 @@ int main(int argc, char** argv) {
   auto escape_json = [](const std::string& s) -> std::string {
     std::string result;
     result.reserve(s.size());
+    static const char hex[] = "0123456789abcdef";
+
     for (char c : s) {
       switch (c) {
       case '"':
@@ -1329,6 +1331,12 @@ int main(int argc, char** argv) {
         break;
       case '\\':
         result += "\\\\";
+        break;
+      case '\b':
+        result += "\\b";
+        break;
+      case '\f':
+        result += "\\f";
         break;
       case '\n':
         result += "\\n";
@@ -1340,7 +1348,13 @@ int main(int argc, char** argv) {
         result += "\\t";
         break;
       default:
-        result += c;
+        if (static_cast<unsigned char>(c) < 0x20) {
+          result += "\\u00";
+          result += hex[(c >> 4) & 0x0f];
+          result += hex[c & 0x0f];
+        } else {
+          result += c;
+        }
       }
     }
     return result;

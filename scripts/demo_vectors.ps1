@@ -48,29 +48,34 @@ try {
     Invoke-RestMethod -Uri "$baseUrl/api/health" -Method Get | Out-Null
     Write-Host "✓ Server is running" -ForegroundColor Green
 } catch {
-    Write-Host "✗ Server not accessible at $baseUrl" -ForegroundColor Red
-    Write-Host "  Please start the server with: .\build\windows-vs2022-x64-debug\Debug\dbweb.exe" -ForegroundColor Yellow
-    exit 1
+    # If health check fails, try stats endpoint which we know exists
+    try {
+        Invoke-RestMethod -Uri "$baseUrl/api/vector/stats" -Method Get | Out-Null
+        Write-Host "✓ Server is running" -ForegroundColor Green
+    } catch {
+        Write-Host "✗ Server not accessible at $baseUrl" -ForegroundColor Red
+        Write-Host "  Please start the server with: .\build\windows-vs2022-x64-debug\Debug\dbweb.exe" -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 Write-Host "`n=== Step 1: Populate User Profile Embeddings ===" -ForegroundColor Yellow
 Write-Host "Simulating user embeddings from a recommendation system - 128 dimensions"
 
 # Generate realistic user embeddings (128 dimensions)
-# These could represent user preferences, behavior patterns, etc.
 $users = @{
-    "user:alice" = @(0.8, 0.6, 0.3, 0.9, 0.2, 0.7, 0.5, 0.4) + @(0.1) * 120  # Tech enthusiast
-    "user:bob" = @(0.7, 0.7, 0.4, 0.8, 0.3, 0.6, 0.6, 0.5) + @(0.15) * 120   # Similar to Alice
-    "user:charlie" = @(0.2, 0.3, 0.8, 0.1, 0.9, 0.4, 0.3, 0.7) + @(0.2) * 120 # Sports fan
-    "user:diana" = @(0.3, 0.2, 0.9, 0.2, 0.8, 0.3, 0.4, 0.6) + @(0.18) * 120  # Similar to Charlie
-    "user:eve" = @(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5) + @(0.12) * 120    # Balanced interests
+    "user:alice" = @(0.8, 0.6, 0.3, 0.9, 0.2, 0.7, 0.5, 0.4) + @(0.1) * 120
+    "user:bob" = @(0.7, 0.7, 0.4, 0.8, 0.3, 0.6, 0.6, 0.5) + @(0.15) * 120
+    "user:charlie" = @(0.2, 0.3, 0.8, 0.1, 0.9, 0.4, 0.3, 0.7) + @(0.2) * 120
+    "user:diana" = @(0.3, 0.2, 0.9, 0.2, 0.8, 0.3, 0.4, 0.6) + @(0.18) * 120
+    "user:eve" = @(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5) + @(0.12) * 120
 }
 
 $userCount = 0
-foreach ($user in $users.GetEnumerator()) {
-    if (Add-Vector -key $user.Key -vector $user.Value) {
+foreach ($userKey in $users.Keys) {
+    if (Add-Vector -key $userKey -vector $users[$userKey]) {
         $userCount++
-        Write-Host "  ✓ Inserted $($user.Key)" -ForegroundColor Green
+        Write-Host "  ✓ Inserted $userKey" -ForegroundColor Green
     }
 }
 Write-Host "Inserted $userCount user profiles`n" -ForegroundColor Cyan
@@ -78,7 +83,6 @@ Write-Host "Inserted $userCount user profiles`n" -ForegroundColor Cyan
 Write-Host "`n=== Step 2: Populate Document Embeddings ===" -ForegroundColor Yellow
 Write-Host "Simulating document embeddings from a text search system - 128 dimensions"
 
-# Document embeddings (e.g., from BERT, sentence transformers)
 $documents = @{
     "doc:ai_intro" = @(0.9, 0.8, 0.7, 0.6, 0.2, 0.3, 0.4, 0.5) + @(0.25) * 120
     "doc:ml_basics" = @(0.85, 0.75, 0.65, 0.55, 0.25, 0.35, 0.45, 0.55) + @(0.24) * 120
@@ -91,10 +95,10 @@ $documents = @{
 }
 
 $docCount = 0
-foreach ($doc in $documents.GetEnumerator()) {
-    if (Add-Vector -key $doc.Key -vector $doc.Value) {
+foreach ($docKey in $documents.Keys) {
+    if (Add-Vector -key $docKey -vector $documents[$docKey]) {
         $docCount++
-        Write-Host "  ✓ Inserted $($doc.Key)" -ForegroundColor Green
+        Write-Host "  ✓ Inserted $docKey" -ForegroundColor Green
     }
 }
 Write-Host "Inserted $docCount documents`n" -ForegroundColor Cyan
@@ -102,7 +106,6 @@ Write-Host "Inserted $docCount documents`n" -ForegroundColor Cyan
 Write-Host "`n=== Step 3: Populate Image Embeddings ===" -ForegroundColor Yellow
 Write-Host "Simulating image embeddings from a computer vision model - 128 dimensions"
 
-# Image embeddings (e.g., from ResNet, CLIP)
 $images = @{
     "img:cat_001" = @(0.7, 0.3, 0.2, 0.8, 0.9, 0.1, 0.4, 0.6) + @(0.4) * 120
     "img:cat_002" = @(0.68, 0.32, 0.22, 0.78, 0.88, 0.12, 0.42, 0.58) + @(0.39) * 120
@@ -114,10 +117,10 @@ $images = @{
 }
 
 $imgCount = 0
-foreach ($img in $images.GetEnumerator()) {
-    if (Add-Vector -key $img.Key -vector $img.Value) {
+foreach ($imgKey in $images.Keys) {
+    if (Add-Vector -key $imgKey -vector $images[$imgKey]) {
         $imgCount++
-        Write-Host "  ✓ Inserted $($img.Key)" -ForegroundColor Green
+        Write-Host "  ✓ Inserted $imgKey" -ForegroundColor Green
     }
 }
 Write-Host "Inserted $imgCount images`n" -ForegroundColor Cyan
@@ -168,7 +171,7 @@ if ($similarImages) {
     }
 }
 
-# Demo 4: Cross-domain search (find documents similar to a user)
+# Demo 4: Cross-domain search
 Write-Host "`n4. Documents matching Charlie's interests (sports fan):" -ForegroundColor Cyan
 $charlieQuery = $users["user:charlie"]
 $matchingDocs = Search-Similar -query $charlieQuery -k 5

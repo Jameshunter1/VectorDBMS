@@ -51,7 +51,7 @@ static void BM_BatchWrite_Small(benchmark::State& state) {
     std::vector<core_engine::Engine::BatchOperation> ops;
     for (int i = 0; i < batch_size; i++) {
       auto [key, value] = GenerateKV(rng, 100);
-      ops.push_back({core_engine::Engine::BatchOperation::Type::PUT, key, value});
+      ops.push_back({core_engine::Engine::BatchOperation::Type::kPut, key, value});
     }
     state.ResumeTiming();
 
@@ -332,7 +332,7 @@ static void BM_Batch_Puts_100(benchmark::State& state) {
     std::vector<core_engine::Engine::BatchOperation> ops;
     for (int i = 0; i < 100; i++) {
       auto [key, value] = GenerateKV(rng);
-      ops.push_back({core_engine::Engine::BatchOperation::Type::PUT, key, value});
+      ops.push_back({core_engine::Engine::BatchOperation::Type::kPut, key, value});
     }
     state.ResumeTiming();
 

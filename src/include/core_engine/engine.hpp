@@ -76,7 +76,7 @@ public:
   // v1.4: Advanced batch operations for improved performance.
   // Batch operations reduce WAL sync overhead by grouping writes.
   struct BatchOperation {
-    enum class Type { PUT, DELETE };
+    enum class Type { kPut, kDelete };
     Type type;
     std::string key;
     std::string value; // Empty for DELETE operations.

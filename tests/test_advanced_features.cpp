@@ -32,7 +32,7 @@ void test_batch_write() {
   // Create batch of 100 write operations
   std::vector<Engine::BatchOperation> ops;
   for (int i = 0; i < 100; i++) {
-    ops.push_back({Engine::BatchOperation::Type::PUT, "batch_key_" + std::to_string(i),
+    ops.push_back({Engine::BatchOperation::Type::kPut, "batch_key_" + std::to_string(i),
                    "batch_value_" + std::to_string(i)});
   }
 

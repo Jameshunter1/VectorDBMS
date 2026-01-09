@@ -106,7 +106,7 @@ TEST_CASE("Storage Layer: DiskManager", "[storage][disk]") {
 
     REQUIRE(page1 < page2);
     REQUIRE(page2 < page3);
-    REQUIRE(dm.GetNumPages() == 3);
+    REQUIRE(dm.GetNumPages() == 4); // 3 pages allocated + 1 reserved header page
 
     dm.Close();
   }

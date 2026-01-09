@@ -1,3 +1,4 @@
+/* A table of CRC32 values for polynomial 0x04C11DB7 used to compute CRC32 checksums */
 #include <core_engine/common/crc32.hpp>
 
 namespace core_engine::crc32 {

@@ -105,7 +105,7 @@ std::vector<std::string> SplitArgs(const std::string& input) {
   std::string current;
   bool in_quotes = false;
 
-  for (size_t i = 0; i < input.length(); ++i) {
+  for (std::size_t i = 0; i < input.length(); ++i) {
     char c = input[i];
 
     if (c == '"' || c == '\'') {
@@ -185,7 +185,7 @@ void InteractiveMode(core_engine::Engine& engine, const std::string& db_path) {
     } else if (cmd == "put" && args.size() >= 3) {
       std::string key = args[1];
       std::string value;
-      for (size_t i = 2; i < args.size(); ++i) {
+      for (std::size_t i = 2; i < args.size(); ++i) {
         if (i > 2)
           value += " ";
         value += args[i];
@@ -236,12 +236,12 @@ void InteractiveMode(core_engine::Engine& engine, const std::string& db_path) {
     } else if (cmd == "bput" && args.size() >= 2) {
       std::vector<core_engine::Engine::BatchOperation> ops;
 
-      for (size_t i = 1; i < args.size(); ++i) {
+      for (std::size_t i = 1; i < args.size(); ++i) {
         auto sep = args[i].find(':');
         if (sep != std::string::npos) {
           std::string k = args[i].substr(0, sep);
           std::string v = args[i].substr(sep + 1);
-          ops.push_back({core_engine::Engine::BatchOperation::Type::PUT, k, v});
+          ops.push_back({core_engine::Engine::BatchOperation::Type::kPut, k, v});
         }
       }
 
@@ -255,7 +255,7 @@ void InteractiveMode(core_engine::Engine& engine, const std::string& db_path) {
       std::vector<std::string> keys(args.begin() + 1, args.end());
       auto results = engine.BatchGet(keys);
 
-      for (size_t i = 0; i < results.size(); ++i) {
+      for (std::size_t i = 0; i < results.size(); ++i) {
         if (results[i].has_value()) {
           std::cout << "  " << keys[i] << " = " << *results[i] << "\n";
         } else {

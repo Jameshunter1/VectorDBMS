@@ -8,7 +8,8 @@
 
 namespace core_engine {
 
-RateLimiter::RateLimiter(double rate, double burst) : rate_(rate), burst_(burst) {}
+RateLimiter::RateLimiter(double rate, double burst) : rate_(rate), burst_(burst) {
+}
 
 bool RateLimiter::Allow(const std::string& client_id) {
   std::lock_guard<std::mutex> lock(mutex_);

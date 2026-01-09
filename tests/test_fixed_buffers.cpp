@@ -305,5 +305,26 @@ TEST_CASE("Fixed Buffers: Fallback to Dynamic Buffers", "[storage][fixed_buffers
     dm.Close();
   }
 
+  SECTION("Simulate dynamic buffer allocation fallback") {
+    DiskManager dm(db_dir / "test_fallback.db");
+    REQUIRE(dm.Open().ok());
+
+    // Simulate dynamic buffer allocation fallback
+    BufferPoolManager bpm(32, &dm);
+
+    PageId pid;
+    auto new_page = bpm.NewPage(&pid);
+    REQUIRE(new_page != nullptr);
+    REQUIRE(pid != kInvalidPageId);
+
+    bpm.UnpinPage(pid, true);
+    bpm.FlushPage(pid);
+
+    auto fetched = bpm.FetchPage(pid);
+    REQUIRE(fetched != nullptr); // Ensure dynamic buffer is allocated
+
+    dm.Close();
+  }
+
   std::filesystem::remove_all(db_dir);
 }

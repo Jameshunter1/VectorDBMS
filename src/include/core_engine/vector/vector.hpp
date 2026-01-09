@@ -26,9 +26,12 @@ public:
 
   // Constructors
   Vector() = default;
-  explicit Vector(std::size_t dimension) : data_(dimension, 0.0f) {}
-  explicit Vector(container_type data) : data_(std::move(data)) {}
-  Vector(std::initializer_list<value_type> init) : data_(init) {}
+  explicit Vector(std::size_t dimension) : data_(dimension, 0.0f) {
+  }
+  explicit Vector(container_type data) : data_(std::move(data)) {
+  }
+  Vector(std::initializer_list<value_type> init) : data_(init) {
+  }
 
   // Access
   value_type& operator[](std::size_t index) {
