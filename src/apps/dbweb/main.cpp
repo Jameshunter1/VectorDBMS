@@ -1520,6 +1520,33 @@ int main(int argc, char** argv) {
 
       Log(LogLevel::kInfo,
           "File uploaded: " + filepath + " (" + std::to_string(file.content.size()) + " bytes)");
+
+      // If SIFT file, parse and import vectors
+      if (filename.find(".fvecs") != std::string::npos ||
+          filename.find(".ivecs") != std::string::npos) {
+        core_engine::vector::SiftParser parser(filepath);
+        if (parser.Open()) {
+          size_t imported = 0;
+          while (auto vec_opt = parser.Next()) {
+            std::string key = "vector:" + std::to_string(imported);
+            std::lock_guard<std::mutex> lock(engine_mutex);
+            auto status = engine.PutVector(key, *vec_opt);
+            if (!status.ok()) {
+              Log(LogLevel::kError, "Failed to import vector " + key + ": " + status.ToString());
+              break;
+            }
+            ++imported;
+            if (imported % 1000 == 0) {
+              Log(LogLevel::kInfo, "Imported " + std::to_string(imported) + " vectors...");
+            }
+          }
+          Log(LogLevel::kInfo,
+              "Imported " + std::to_string(imported) + " vectors from " + filename);
+        } else {
+          Log(LogLevel::kError, "Failed to open SIFT file for import: " + filepath);
+        }
+      }
+
       res.set_content(filepath, "text/plain");
     } catch (const std::exception& e) {
       res.status = 500;

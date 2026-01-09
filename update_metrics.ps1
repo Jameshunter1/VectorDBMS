@@ -9,6 +9,7 @@ Write-Host "Calculating project metrics..."
 
 $metricsPath = "PROJECT_METRICS.md"
 $date = Get-Date -Format 'yyyy-MM-dd'
+$time= Get-Date -Format 'HH:mm:ss'
 
 # C/C++ source and header files
 $cppCount = (Get-ChildItem -Recurse -Include *.cpp,*.hpp,*.h,*.c -File | Where-Object { $_.FullName -notmatch '\\build\\|_deps\\' } | Measure-Object).Count
@@ -32,7 +33,7 @@ foreach ($f in $files) { $loc += (Get-Content $f | Measure-Object -Line).Lines }
 
 # Write metrics to file
 @"
-# Project Metrics (as of $date)
+# Project Metrics (as of $date $time)
 
 - C/C++ source and header files: $cppCount
 - Total files (excluding build/_deps): $fileCount

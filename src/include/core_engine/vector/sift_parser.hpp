@@ -1,6 +1,7 @@
 #pragma once
 
 #include <core_engine/vector/vector.hpp>
+#include <cstdint>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -49,7 +50,7 @@ public:
    * @brief Get the dimension of vectors in this file.
    * Only valid after calling Open() and successfully reading at least once or peek.
    */
-  uint32_t GetDimension() const {
+  std::uint32_t GetDimension() const {
     return dimension_;
   }
 
@@ -68,7 +69,7 @@ public:
 private:
   std::string filepath_;
   std::ifstream file_;
-  uint32_t dimension_ = 0;
+  std::uint32_t dimension_ = 0;
 };
 
 } // namespace vector

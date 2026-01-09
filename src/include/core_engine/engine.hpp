@@ -198,6 +198,9 @@ private:
   TxnId batch_txn_id_ = 0;  // Shared transaction ID for current batch
   LSN batch_begin_lsn_ = 0; // Begin LSN for current batch transaction
 
+  // Thread safety: coarse-grained recursive mutex for all public API
+  mutable std::recursive_mutex engine_mutex_;
+
   // Vector database components
   std::unique_ptr<vector::HNSWIndex> vector_index_; // HNSW index for similarity search
   DatabaseConfig config_;                           // Store config for vector settings

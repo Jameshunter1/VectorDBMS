@@ -196,6 +196,7 @@ Status Engine::Open(const DatabaseConfig& config) {
 }
 
 Status Engine::Put(std::string key, std::string value) {
+  std::lock_guard<std::recursive_mutex> lock(engine_mutex_);
   if (!is_open_) {
     return Status::Internal("Engine is not open");
   }
@@ -303,6 +304,7 @@ Status Engine::Put(std::string key, std::string value) {
 }
 
 std::optional<std::string> Engine::Get(std::string key) {
+  std::lock_guard<std::recursive_mutex> lock(engine_mutex_);
   if (!is_open_) {
     return std::nullopt;
   }
@@ -613,6 +615,7 @@ std::vector<std::pair<std::string, std::string>> Engine::GetAllEntries() const {
 // ====== Vector Database Operations ======
 
 Status Engine::PutVector(const std::string& key, const vector::Vector& vec) {
+  std::lock_guard<std::recursive_mutex> lock(engine_mutex_);
   if (!vector_index_) {
     return Status::Internal("Vector index not enabled");
   }
@@ -661,6 +664,7 @@ std::vector<Engine::VectorSearchResult> Engine::SearchSimilar(const vector::Vect
 }
 
 std::optional<vector::Vector> Engine::GetVector(const std::string& key) {
+  std::lock_guard<std::recursive_mutex> lock(engine_mutex_);
   auto serialized_opt = Get(key);
   if (!serialized_opt.has_value()) {
     return std::nullopt;

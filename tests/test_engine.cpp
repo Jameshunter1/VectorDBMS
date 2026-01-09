@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <catch2/catch_approx.hpp>
 #include <core_engine/common/config.hpp>
 #include <core_engine/engine.hpp>
 #include <core_engine/vector/sift_parser.hpp>
@@ -346,7 +347,6 @@ TEST_CASE("Engine handles concurrent operations safely") {
     readers.emplace_back([&engine, t]() {
       for (int i = 0; i < 100; i++) {
         std::string key = "thread" + std::to_string(t) + "_key" + std::to_string(i);
-        // Reads might return nullopt early on, that's fine
         engine.Get(key);
       }
     });
@@ -513,6 +513,61 @@ TEST_CASE("Engine inserts many vectors without layer mismatches") {
     REQUIRE((*stored)[0] == static_cast<float>(i));
   }
 
+  std::error_code ec;
+  std::filesystem::remove_all(db_dir, ec);
+}
+
+TEST_CASE("SIFT file import populates database entries") {
+  // Create a small .fvecs file (3 vectors, 4 dimensions)
+  const auto suffix = static_cast<std::uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  const auto db_dir = std::filesystem::temp_directory_path() /
+                      ("core_engine_sift_import_" + std::to_string(suffix));
+  const auto sift_path = db_dir / "test_vectors.fvecs";
+
+  std::filesystem::create_directories(db_dir);
+  {
+    std::ofstream ofs(sift_path, std::ios::binary);
+    int32_t dim = 4;
+    float data[3][4] = {
+        {1.0f, 2.0f, 3.0f, 4.0f}, {5.0f, 6.0f, 7.0f, 8.0f}, {9.0f, 10.0f, 11.0f, 12.0f}};
+    for (int i = 0; i < 3; ++i) {
+      ofs.write(reinterpret_cast<const char*>(&dim), sizeof(dim));
+      ofs.write(reinterpret_cast<const char*>(data[i]), sizeof(float) * dim);
+    }
+  }
+
+  core_engine::DatabaseConfig config = core_engine::DatabaseConfig::Embedded(db_dir);
+  config.enable_vector_index = true;
+  config.vector_dimension = 4;
+  core_engine::Engine engine;
+  REQUIRE(engine.Open(config).ok());
+
+  // Simulate the import logic (as in dbweb)
+  core_engine::vector::SiftParser parser(sift_path.string());
+  REQUIRE(parser.Open());
+  size_t imported = 0;
+  while (auto vec_opt = parser.Next()) {
+    std::string key = "vector:" + std::to_string(imported);
+    auto status = engine.PutVector(key, *vec_opt);
+    REQUIRE(status.ok());
+    ++imported;
+  }
+  REQUIRE(imported == 3);
+
+  // Check that the vectors are present and correct
+  for (size_t i = 0; i < 3; ++i) {
+    std::string key = "vector:" + std::to_string(i);
+    auto stored = engine.GetVector(key);
+    REQUIRE(stored.has_value());
+    REQUIRE(stored->dimension() == 4);
+    for (size_t d = 0; d < 4; ++d) {
+      float expected = 1.0f + 4.0f * static_cast<float>(i) + static_cast<float>(d);
+      REQUIRE((*stored)[d] == Catch::Approx(expected));
+    }
+  }
+
+  // Clean up
   std::error_code ec;
   std::filesystem::remove_all(db_dir, ec);
 }
