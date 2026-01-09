@@ -1,3 +1,4 @@
+/* Simple logging utility for the database engine. It is used to log messages to the console. */
 #include <core_engine/common/logger.hpp>
 
 #include <algorithm>

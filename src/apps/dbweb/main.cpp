@@ -1,6 +1,7 @@
 #include <core_engine/common/logger.hpp>
 #include <core_engine/engine.hpp>
 #include <core_engine/metrics.hpp>
+#include <core_engine/vector/sift_parser.hpp>
 
 #include <httplib.h>
 
@@ -373,6 +374,26 @@ static const char* kIndexHtml_Part1b = R"HTML(
           <button class="btn-secondary" onclick="copyVectorToQuery()">Copy Insert Vector to Query</button>
           
           <div id="search-results" style="margin-top: 20px;"></div>
+        </div>
+
+        <div class="card">
+          <h3>Binary SIFT Loader (.fvecs)</h3>
+          <div class="form-group">
+            <label>Server-side File Path</label>
+            <input type="text" id="sift-path" placeholder="/ext/sift/sift_base.fvecs" autocomplete="off"/>
+          </div>
+          <div class="form-group">
+            <label>Key Prefix</label>
+            <input type="text" id="sift-prefix" value="sift" placeholder="sift"/>
+          </div>
+          <div class="form-group">
+            <label>Limit (0 for all)</label>
+            <input type="number" id="sift-limit" value="10000" min="0"/>
+          </div>
+          <button class="btn-success" onclick="doBulkFileLoad()">Start Bulk Ingestion</button>
+          <p style="margin-top: 10px; font-size: 12px; color: #666;">
+            Streams vectors directly from a binary SIFT file on the server.
+          </p>
         </div>
       </div>
       
@@ -1210,6 +1231,37 @@ static const char* kIndexHtml_Part3 = R"HTML(
       
       html += '</div>';
       container.innerHTML = html;
+    }
+
+    async function doBulkFileLoad() {
+      const path = document.getElementById('sift-path').value.trim();
+      const limit = document.getElementById('sift-limit').value.trim();
+      const prefix = document.getElementById('sift-prefix').value.trim() || 'sift';
+
+      if (!path) {
+        log('File path required', 'error');
+        return;
+      }
+
+      log(`Starting bulk file load from "${path}"...`);
+      try {
+        const res = await fetch('/api/vector/bulk_load_file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ path, limit, prefix })
+        });
+
+        if (res.ok) {
+          const text = await res.text();
+          log(`✓ ${text}`, 'success');
+          await refreshVectorStats();
+          await refreshBrowse();
+        } else {
+          log(`✗ Bulk load failed: ${await res.text()}`, 'error');
+        }
+      } catch (err) {
+        log('Error: ' + err.message, 'error');
+      }
     }
 
     async function refreshVectorStats() {

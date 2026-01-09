@@ -68,6 +68,7 @@ target_sources(core_engine
     lib/performance/metrics.cpp
     lib/vector/vector.cpp
     lib/vector/hnsw_index.cpp
+    lib/vector/sift_parser.cpp
 )
 
 target_compile_features(core_engine PUBLIC cxx_std_20)
