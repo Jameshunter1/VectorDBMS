@@ -88,7 +88,9 @@ auto value = engine.Get("key");
 
 ## Documentation
 
- **[Complete Documentation](docs/DOCUMENTATION.md)** - API, deployment, performance tuning
+ **[Complete Documentation](docs/DOCUMENTATION.md)** - API, deployment, performance tuning  
+ **[Command Reference](docs/COMMAND_REFERENCE.md)** - All build, test, and run commands  
+ **[Documentation Index](docs/README.md)** - Browse all documentation
 
 ## Architecture
 
