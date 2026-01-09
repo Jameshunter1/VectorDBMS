@@ -98,6 +98,14 @@ The refreshed `dbweb` frontend now:
 
 ---
 
+## GitHub MCP Server
+
+Vectis supports integration with the GitHub Model Context Protocol (MCP) server, allowing AI assistants to interact with your repository.
+
+- **[MCP Setup Guide](MCP_SETUP.md)** – Complete installation and configuration instructions
+
+---
+
 ## Building from Source
 
 ### Windows (Visual Studio)

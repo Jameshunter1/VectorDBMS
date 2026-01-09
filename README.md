@@ -56,7 +56,7 @@ Each artifact shares the same defaults (`/vectis/data` volume, port `8080`, heal
  **HNSW vector index** for similarity search  
  **Batch operations** and range scans  
  **Prometheus metrics** + Grafana dashboards  
- **Vector-aware web console** with server-backed Browse Data + bulk loader  
+ **GitHub MCP Server** for AI-driven repo automation  
  **Docker deployment** with monitoring stack  
 
 ## Performance
@@ -90,6 +90,7 @@ auto value = engine.Get("key");
 
  **[Complete Documentation](docs/DOCUMENTATION.md)** - API, deployment, performance tuning  
  **[Command Reference](docs/COMMAND_REFERENCE.md)** - All build, test, and run commands  
+ **[GitHub MCP Setup](docs/MCP_SETUP.md)** - Integration guide for AI assistants  
  **[Documentation Index](docs/README.md)** - Browse all documentation
 
 ## Architecture
