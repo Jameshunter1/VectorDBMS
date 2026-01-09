@@ -7,7 +7,7 @@ Write-Host "Running clang-format..."
 # Calculate metrics
 Write-Host "Calculating project metrics..."
 
-$metricsPath = "PROJECT_METRICS.md"
+$metricsPath = "docs\PROJECT_METRICS.md"
 $date = Get-Date -Format 'yyyy-MM-dd'
 $time= Get-Date -Format 'HH:mm:ss'
 

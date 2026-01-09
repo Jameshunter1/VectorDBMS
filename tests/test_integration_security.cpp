@@ -24,10 +24,13 @@ void test_authenticated_database_operations() {
   AuditLogger audit("./test_integration_audit.log");
   Engine engine;
 
-  std::string db_path = "./test_auth_db";
+  const auto suffix = static_cast<std::uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  const auto db_path =
+      std::filesystem::temp_directory_path() / ("test_auth_db_" + std::to_string(suffix));
   std::filesystem::remove_all(db_path);
 
-  auto status = engine.Open(db_path);
+  auto status = engine.Open(db_path.string());
   assert(status.ok() && "Database should open");
 
   // Create users
@@ -87,9 +90,13 @@ void test_concurrent_authenticated_access() {
   AuditLogger audit("./test_concurrent_audit.log");
   Engine engine;
 
-  std::string db_path = "./test_concurrent_db";
+  const auto suffix = static_cast<std::uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  const auto db_path =
+      std::filesystem::temp_directory_path() / ("test_concurrent_db_" + std::to_string(suffix));
   std::filesystem::remove_all(db_path);
-  engine.Open(db_path);
+  auto status = engine.Open(db_path.string());
+  assert(status.ok() && "Database should open");
 
   // Create multiple users
   auth.CreateUser("user1", "pass1", {"user"});
@@ -185,9 +192,13 @@ void test_audit_log_with_failed_operations() {
   AuditLogger audit("./test_failed_ops_audit.log");
   Engine engine;
 
-  std::string db_path = "./test_failed_ops_db";
+  const auto suffix = static_cast<std::uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  const auto db_path =
+      std::filesystem::temp_directory_path() / ("test_failed_ops_db_" + std::to_string(suffix));
   std::filesystem::remove_all(db_path);
-  engine.Open(db_path);
+  auto status = engine.Open(db_path.string());
+  assert(status.ok() && "Database should open");
 
   auth.CreateUser("testuser", "testpass", {"user"});
 
@@ -254,9 +265,13 @@ void test_bulk_operations_with_audit() {
   AuditLogger audit("./test_bulk_audit.log");
   Engine engine;
 
-  std::string db_path = "./test_bulk_db";
+  const auto suffix = static_cast<std::uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  const auto db_path =
+      std::filesystem::temp_directory_path() / ("test_bulk_db_" + std::to_string(suffix));
   std::filesystem::remove_all(db_path);
-  engine.Open(db_path);
+  auto status = engine.Open(db_path.string());
+  assert(status.ok() && "Database should open");
 
   auth.CreateUser("bulkuser", "bulkpass", {"user"});
   std::string session = auth.CreateSession("bulkuser", "127.0.0.1");
@@ -306,9 +321,13 @@ void test_role_hierarchy_with_operations() {
   AuditLogger audit("./test_roles_audit.log");
   Engine engine;
 
-  std::string db_path = "./test_roles_db";
+  const auto suffix = static_cast<std::uint64_t>(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  const auto db_path =
+      std::filesystem::temp_directory_path() / ("test_roles_db_" + std::to_string(suffix));
   std::filesystem::remove_all(db_path);
-  engine.Open(db_path);
+  auto status = engine.Open(db_path.string());
+  assert(status.ok() && "Database should open");
 
   // Create users with different roles
   auth.CreateUser("superadmin", "super123", {"admin", "user", "power"});
