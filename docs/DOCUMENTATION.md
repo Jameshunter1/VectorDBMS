@@ -30,18 +30,18 @@
 # Windows
 git clone https://github.com/Jameshunter1/VectorDBMS.git
 cd VectorDBMS
-cmake --preset windows-vs2022-x64-debug -S src
-cmake --build build/windows-vs2022-x64-debug --config Debug
-.\build\windows-vs2022-x64-debug\Debug\dbcli.exe
+cmake --preset=windows-vs2022-x64-debug
+cmake --build build/windows-vs2022-x64-debug
+.\build\windows-vs2022-x64-debug\apps\dbcli\Debug\dbcli.exe
 ```
 
 ```bash
 # Linux/macOS
 git clone https://github.com/Jameshunter1/VectorDBMS.git
 cd VectorDBMS
-cmake -B build -S src -DCMAKE_BUILD_TYPE=Release
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
-./build/apps/dbcli
+./build/apps/dbcli/dbcli
 ```
 
 ### Option 2: Docker (2 minutes)
@@ -104,17 +104,19 @@ The refreshed `dbweb` frontend now:
 
 ```powershell
 # Configure with CMake preset
-cmake --preset windows-vs2022-x64-debug -S src
+cmake --preset=windows-vs2022-x64-debug
 
 # Build all targets (library + apps + tests)
-cmake --build build/windows-vs2022-x64-debug --config Debug
+cmake --build build/windows-vs2022-x64-debug
 
 # Run tests
-ctest --test-dir build/windows-vs2022-x64-debug -C Debug --output-on-failure
+cd build/windows-vs2022-x64-debug
+ctest -C Debug --output-on-failure
+cd ../..
 
 # Run specific executable
-.\build\windows-vs2022-x64-debug\Debug\dbcli.exe
-.\build\windows-vs2022-x64-debug\Debug\dbweb.exe --port 8080
+.\build\windows-vs2022-x64-debug\apps\dbcli\Debug\dbcli.exe
+.\build\windows-vs2022-x64-debug\apps\dbweb\Debug\dbweb.exe --port 8080
 ```
 
 ### Linux/macOS (Make or Ninja)
@@ -148,10 +150,10 @@ sudo cmake --install build --prefix /usr/local
 
 ```bash
 # AVX2 optimization (Intel/AMD)
-cmake -B build -S src -DCMAKE_CXX_FLAGS="-march=native -O3"
+cmake -B build -DCMAKE_CXX_FLAGS="-march=native -O3"
 
 # ARM NEON optimization
-cmake -B build -S src -DCMAKE_CXX_FLAGS="-march=armv8-a+simd -O3"
+cmake -B build -DCMAKE_CXX_FLAGS="-march=armv8-a+simd -O3"
 ```
 
 ---
@@ -543,9 +545,9 @@ cd VectorDBMS
 git checkout -b feature/my-improvement
 
 # 4. Make changes and test
-cmake --preset windows-vs2022-x64-debug -S src
-cmake --build build/windows-vs2022-x64-debug --config Debug
-ctest --test-dir build/windows-vs2022-x64-debug -C Debug
+cmake --preset=windows-vs2022-x64-debug
+cmake --build build/windows-vs2022-x64-debug
+cd build/windows-vs2022-x64-debug && ctest -C Debug --output-on-failure && cd ../..
 
 # 5. Commit with descriptive message
 git add .
