@@ -1,4 +1,8 @@
-/* A table of CRC32 values for polynomial 0x04C11DB7 used to compute CRC32 checksums */
+/*Used to compute CRC32 checksums, A checksum is a small datum (typically a byte or word) computed from a block of data for the purpose of detecting errors that may have occurred during its transmission or storage. The CRC32 checksum is a 32-bit value that is computed using a polynomial of degree 32.
+
+Scenario: Without CRC32, we would need to implement a checksum function that would be used to verify the integrity of data being transmitted or stored. This would require additional code and processing power, and it would be more complex to implement and maintain.
+
+*/
 #include <core_engine/common/crc32.hpp>
 
 namespace core_engine::crc32 {
