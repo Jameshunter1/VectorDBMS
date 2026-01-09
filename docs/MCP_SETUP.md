@@ -105,6 +105,8 @@ If the server fails to connect:
 - Verify Node.js and npm are properly installed
 - Check that the MCP server package is installed globally
 - Ensure your network allows connections to GitHub's API
+> [!IMPORTANT]
+> Check if docker is running and the containers are up and running
 
 ### Configuration Issues
 If the configuration isn't recognized:

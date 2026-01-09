@@ -14,7 +14,7 @@ Use these commands from the repository root to configure, build, and run the dbw
    cmake --build build/windows-vs2022-x64-debug --config Debug --target dbweb
    ```
 
-3. Run the web server (defaults: data dir `./_web_demo`, port `8080`, vector dim `128`):
+3. Run the web server (defaults: data dir `./vectis_data`, port `8080`, vector dim `128`):
 
    ```powershell
    .\build\windows-vs2022-x64-debug\Debug\dbweb.exe [optional_db_dir] [optional_port] [optional_vector_dim]
