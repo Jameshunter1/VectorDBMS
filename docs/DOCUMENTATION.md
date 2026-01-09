@@ -92,6 +92,7 @@ Arguments: `<data_dir> [single_page_count] [contiguous_page_count]`. Remove the 
 The refreshed `dbweb` frontend now:
 
 - Browse Data now streams both key/value rows and stored vectors directly from the engine (no more session-only cache).
+- **Heuristic Vector Rendering**: The web demo now automatically detects binary vector data in GET results and reformats it into readable float strings.
 - Adds a bulk vector loader that generates random vectors matching the configured dimension.
 - Removes legacy SSTable widgets and replaces them with live disk + latency metrics.
 - Fixes tab switching so programmatic navigation (e.g., from "View" buttons) no longer throws console errors.
@@ -631,6 +632,7 @@ Copyright (c) 2026 James Hunter & Contributors
 
 - **2026 Q2**: Zero-copy buffer registration (io_uring fixed buffers + IOCP prototype)
 - **2026 Q3**: Custom network protocol with connection pooling
+- **2026 Q3**: Large Dataset Support (SIFT 1M+, billion-scale ingestion)
 - **2026 Q4**: Product quantization for vector compression
 - **2027**: Multi-node replication and sharding
 - **2028**: Managed SaaS offering

@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -1668,15 +1669,40 @@ int main(int argc, char** argv) {
     const auto key = req.get_param_value("key");
 
     std::lock_guard<std::mutex> lock(engine_mutex);
-    const auto value = engine.Get(key);
+    const auto value_opt = engine.Get(key);
 
-    if (!value.has_value()) {
+    if (!value_opt.has_value()) {
       res.status = 404;
       res.set_content("NOT_FOUND", "text/plain");
       return;
     }
 
-    res.set_content(*value, "text/plain");
+    const std::string& raw_value = *value_opt;
+
+    // Heuristic: Check if the value matches the binary vector format
+    // Format: [uint32 dimension][float[dimension] data]
+    // Total size must be 4 + dimension * 4
+    if (raw_value.size() >= sizeof(uint32_t)) {
+      uint32_t dim;
+      std::memcpy(&dim, raw_value.data(), sizeof(uint32_t));
+
+      if (dim > 0 && dim <= 4096 && raw_value.size() == (sizeof(uint32_t) + dim * sizeof(float))) {
+        // Looks like a vector! Format it into readable text
+        std::ostringstream oss;
+        oss << "[vector dim=" << dim << "] ";
+        for (uint32_t i = 0; i < dim; ++i) {
+          float val;
+          std::memcpy(&val, raw_value.data() + sizeof(uint32_t) + i * sizeof(float), sizeof(float));
+          if (i > 0)
+            oss << ",";
+          oss << val;
+        }
+        res.set_content(oss.str(), "text/plain");
+        return;
+      }
+    }
+
+    res.set_content(raw_value, "text/plain");
   });
 
   server.Post("/api/delete", [&](const httplib::Request& req, httplib::Response& res) {

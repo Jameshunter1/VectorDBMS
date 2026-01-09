@@ -100,7 +100,9 @@ auto value = engine.Get("key");
 
 **Year 2 (2026)**:
 - ✅ Q1: Linux io_uring batch I/O + DiskManager batching APIs
+- ✅ **Improved Vector Rendering**: Heuristic binary detection in web demo
 - 🔜 Q2: Zero-copy buffer registration & IOCP parity on Windows
+- 🔜 **Large Dataset Support**: Handling SIFT 1M and other billion-scale datasets
 
 **Roadmap**:
 - **2027**: Multi-node replication
