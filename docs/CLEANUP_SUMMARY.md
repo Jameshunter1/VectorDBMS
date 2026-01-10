@@ -53,7 +53,9 @@
      - API Reference (HTTP + C++)
      - Performance & Benchmarks
      - Security Features
-     - Contributing Guidelines
+   - Contributing Guidelines
+   - Monitoring & Observability (Prometheus + Grafana)
+   - Milestone tracking and health checks
 
 ### Streamlined Files
 1. **README.md** (90 lines, was 167)

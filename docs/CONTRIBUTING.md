@@ -52,13 +52,8 @@ feat: Implement BufferPoolManager with LRU-K eviction
 Year 1 Q2 milestone complete.
 ```
 
-## Testing Requirements
 
 All new features must include:
-- ✅ Unit tests (Catch2)
-- ✅ Integration tests
-- ✅ Benchmarks for performance-critical paths
-- ✅ Documentation updates
 
 Tests must pass before merging:
 ```powershell
@@ -68,11 +63,12 @@ ctest --preset vs-debug --output-on-failure
 ## Questions?
 
 Open a GitHub Issue with:
-- Clear description
-- Code snippets (if applicable)
-- Expected vs actual behavior
-- Environment details (OS, compiler version)
 
----
 
 **Note**: Once Year 1 milestones are complete (Q4: WAL implementation), the project may open for community contributions. Check back for updates!
+## Monitoring & Milestone Requirements
+
+All new features that affect metrics or monitoring should:
+- Expose new metrics for Prometheus if relevant
+- Update Grafana dashboards if metrics change
+- Document milestone tracking in DOCUMENTATION.md

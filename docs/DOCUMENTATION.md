@@ -247,18 +247,59 @@ Compose defaults:
 
 Set these via `docker run -e KEY=value ...` or under the `environment:` block in `docker-compose.yml` to tailor deployments.
 
-### Monitoring Setup
 
-1. **Prometheus** scrapes `/metrics` endpoint every 15s
-2. **Grafana** connects to Prometheus data source
-3. **Pre-built dashboard** shows:
-   - Request rate (ops/sec)
-   - Latency (P50/P95/P99)
-   - Page statistics (reads/writes)
-   - Buffer pool hit rate
-   - Active connections
+### Monitoring & Observability: Prometheus + Grafana
 
-**Access Grafana**: http://localhost:3000 (admin/admin)
+#### Step 1: Prometheus Setup
+
+Prometheus is pre-configured in `monitoring/prometheus.yml` to scrape the Vectis metrics endpoint every 15 seconds.
+
+**How to start Prometheus:**
+
+1. Ensure Docker Compose is installed.
+2. Run: `docker compose up -d` (from repo root)
+3. Prometheus will be available at [http://localhost:9090](http://localhost:9090)
+
+**Prometheus config highlights:**
+- Scrapes Vectis at `/metrics` (port 8080)
+- Stores time-series data in `prometheus-data` volume
+
+#### Step 2: Grafana Setup
+
+Grafana is pre-provisioned with dashboards and Prometheus as its data source.
+
+**How to start Grafana:**
+
+1. Run: `docker compose up -d` (same as above)
+2. Access Grafana at [http://localhost:3000](http://localhost:3000)
+3. Login: `admin` / `admin`
+4. Dashboards auto-load from `monitoring/grafana-dashboards/`
+
+#### Step 3: Key Metrics to Monitor
+
+The main dashboard shows:
+- **Request Rate**: `core_engine_total_reads`, `core_engine_total_writes` (ops/sec)
+- **Latency**: `core_engine_avg_get_latency_microseconds`, `core_engine_avg_put_latency_microseconds` (P50/P95/P99)
+- **Page Statistics**: `core_engine_total_pages`, `core_engine_buffer_pool_hit_rate`
+- **Checksum Failures**: `core_engine_checksum_failures` (should be zero)
+- **Active Connections**: `core_engine_active_connections`
+- **Vector Search**: `core_engine_vector_search_queries_total`, `core_engine_vector_search_latency_microseconds`
+
+#### Milestones & Health Checks
+
+Monitor these for healthy operation and milestone tracking:
+- **Startup**: All metrics endpoints respond, buffer pool hit rate > 0.95
+- **First Data Ingest**: `total_puts` and `total_pages` increase
+- **Performance**: Latency metrics stable, no checksum failures
+- **Vector Index**: Vector search metrics appear after first vector insert
+- **Batch Operations**: Batch write/read metrics increase with load
+- **Long-Term**: No sustained error rates, buffer pool hit rate remains high
+
+**Troubleshooting:**
+- If metrics are missing, check `/metrics` endpoint and Prometheus targets UI
+- For dashboard issues, verify Grafana logs and dashboard provisioning files
+
+**Access Grafana**: [http://localhost:3000](http://localhost:3000) (admin/admin)
 
 ---
 

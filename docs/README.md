@@ -11,11 +11,12 @@ All project documentation is now consolidated in **[DOCUMENTATION.md](DOCUMENTAT
 - **[Source Code Documentation](../src/README.md)** — Source code organization
 - **[Python SDK](../python-sdk/README.md)** — Python client library
 
-For all usage, build, and API questions, start with [DOCUMENTATION.md](DOCUMENTATION.md).
-
+```
 ---
 
-```
+## Monitoring & Observability
+
+See [DOCUMENTATION.md](DOCUMENTATION.md#monitoring--observability-prometheus--grafana) for Prometheus/Grafana setup, key metrics, and milestone tracking.
 docs/
 ├── README.md                    # This file - documentation index
 ├── BUILD_AND_RUN_COMMANDS.md   # Build instructions

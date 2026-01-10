@@ -8,6 +8,21 @@ Complete reference of all commands used in the VectorDBMS project for building, 
 
 ### Configure CMake
 ```powershell
+---
+
+## Monitoring & Observability Commands
+
+### Start Prometheus + Grafana stack
+```bash
+docker compose up -d
+```
+
+### Access dashboards and metrics
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (admin/admin)
+- Vectis metrics endpoint: http://localhost:8080/metrics
+
+See [DOCUMENTATION.md](DOCUMENTATION.md#monitoring--observability-prometheus--grafana) for full setup and milestone guidance.
 # Configure the project with CMake (creates build files)
 # Use debug preset (recommended for development)
 cmake --preset=windows-vs2022-x64-debug
